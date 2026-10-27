@@ -11,6 +11,7 @@ class Integration:
     HOST = ROOT / 'artifacts/test/PwshMcp.Host.exe'
     FLAGS = subprocess.CREATE_NO_WINDOW
     CLIENT = 'integration-' + uuid.uuid4().hex[:8]
+    INVALID_NAMES = ('', 'bad\nname', 'x' * 121)
 
     @classmethod
     def call(cls, **request):
@@ -150,6 +151,38 @@ class Integration:
             data = json.loads(answer['result']['content'][0]['text'])
             assert cls.wait(data['job']['id'])['state'] == 'succeeded'
             results.append('real stdio MCP initialize/list/call -> broker -> worker -> PowerShell')
+            metadata_client = cls.CLIENT + '-metadata'
+            metadata = subprocess.Popen([str(cls.HOST), 'mcp', '--client', metadata_client], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', creationflags=cls.FLAGS)
+            processes.append(metadata)
+            def exchange(proc, request):
+                proc.stdin.write(json.dumps(request, ensure_ascii=False) + '\n'); proc.stdin.flush()
+                response = json.loads(proc.stdout.readline())
+                assert response['id'] == request['id'] and 'result' in response, response
+                return response['result']
+            exchange(metadata, dict(jsonrpc='2.0', id='init-title', method='initialize', params=dict(clientInfo=dict(name='Fallback Name', title='Human Console'))))
+            call = dict(jsonrpc='2.0', id='run-named', method='tools/call', params=dict(name='run', arguments=dict(description='核验 MCP 客户端显示名称和任务名进入任务记录。', taskName='名称验收任务', code="'metadata-ok'", cwd=str(cls.ROOT), privilege='normal')))
+            named = json.loads(exchange(metadata, call)['content'][0]['text'])['job']
+            assert named['client'] == metadata_client and named['clientName'] == 'Human Console' and named['taskName'] == '名称验收任务', named
+            assert cls.wait(named['id'])['state'] == 'succeeded'
+            exchange(metadata, dict(jsonrpc='2.0', id='init-fallback', method='initialize', params=dict(clientInfo=dict(name='Fallback Name', title=''))))
+            fallback = json.loads(exchange(metadata, dict(call, id='run-fallback'))['content'][0]['text'])['job']
+            assert fallback['client'] == metadata_client and fallback['clientName'] == 'Fallback Name', fallback
+            override = subprocess.Popen([str(cls.HOST), 'mcp', '--client', metadata_client + '-override', '--display-name', 'Configured Console'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', creationflags=cls.FLAGS)
+            processes.append(override)
+            exchange(override, dict(jsonrpc='2.0', id='init-override', method='initialize', params=dict(clientInfo=dict(title='Ignored Protocol Name'))))
+            overridden = json.loads(exchange(override, dict(call, id='run-override'))['content'][0]['text'])['job']
+            assert overridden['client'] == metadata_client + '-override' and overridden['clientName'] == 'Configured Console', overridden
+            grant_result = json.loads(exchange(metadata, dict(jsonrpc='2.0', id='grant-name', method='tools/call', params=dict(name='request_access', arguments=dict(taskName='名称授权保留'))))['content'][0]['text'])
+            assert grant_result['grant']['client'] == metadata_client and grant_result['grant']['clientName'] == 'Fallback Name', grant_result
+            state = cls.call(op='snapshot')
+            stored_grant = next(g for g in state['snapshot']['grants'] if g['id'] == grant_result['grant']['id'])
+            assert stored_grant['client'] == metadata_client and stored_grant['clientName'] == 'Fallback Name' and stored_grant['taskName'] == '名称授权保留', stored_grant
+            cls.call(op='deny', id=stored_grant['id'])
+            for bad_name in cls.INVALID_NAMES:
+                bad = cls.call(op='request_access', client=metadata_client, clientName=bad_name, taskName='拒绝无效显示名')
+                assert not bad['ok'] and bad['error'] == 'invalid_request', bad
+            assert cls.call(op='request_access', client=metadata_client + '-legacy', taskName='旧请求兼容')['ok']
+            results.append('MCP title/name fallback and display override persist client/task names without changing authorization key; invalid names rejected and missing legacy field accepted')
             print(json.dumps(dict(passed=len(results), checks=results), ensure_ascii=False))
         finally:
             if mcp and mcp.stdin and not mcp.stdin.closed:

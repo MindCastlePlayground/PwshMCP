@@ -80,7 +80,7 @@ internal sealed class Broker
     }
     private Response Dispatch(Request r,Peer p)
     {
-        if(r.Client.Length>100 || r.Label.Length>500 || r.Id.Length>200 || r.TaskName is null || r.TaskName.Length>200 || r.ClientName is not null&&!ClientNameRules.IsValid(r.ClientName))return Fail(Errors.Invalid);
+        if(r.Client.Length>100 || r.Label.Length>500 || r.Id.Length>200 || r.TaskName is null || r.TaskName.Length>200 || (r.ClientName is not null&&!ClientNameRules.IsValid(r.ClientName)))return Fail(Errors.Invalid);
         switch(r.Op)
         {
             case Ops.Snapshot:return new(){Snapshot=new(){ElevatedBroker=elevated,Grants=grants.Values.Where(g=>Owned(g,p)).ToList(),Jobs=jobs.Values.Where(j=>Owned(j,p)).OrderByDescending(j=>j.CreatedAt).Take(100).Select(SafeJob).ToList()}};

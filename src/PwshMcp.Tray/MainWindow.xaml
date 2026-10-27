@@ -33,11 +33,11 @@
             <StackPanel Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}">
               <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,22,0,6" Text="{x:Static t:Copy+Detail.Reason}"/>
               <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Text="{Binding Reason}"/>
-              <WrapPanel Margin="0,20,0,0">
+              <UniformGrid Margin="0,20,0,0" Columns="3">
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Who.Name}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.RequestEnds}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding RequestEnds}"/></StackPanel>
-              </WrapPanel>
+              </UniformGrid>
               <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource {x:Static t:K.ScopeTpl}}" Margin="0,-2,0,0"/>
               <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Text="{Binding WaitingHead}"/>
               <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{x:Static t:Copy+Detail.NoWaiting}"
@@ -133,8 +133,8 @@
             <TextBlock Style="{StaticResource {x:Static t:K.Title}}" Text="{Binding Head}"/>
             <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,3" Text="{x:Static t:Copy+Detail.Description}"/>
             <TextBlock Style="{StaticResource {x:Static t:K.Desc}}" DataContext="{Binding Cmd}" Text="{Binding Desc, Mode=OneWay}" AutomationProperties.Name="{Binding Desc, Mode=OneWay}"/>
-            <WrapPanel Margin="0,20,0,0">
-              <StackPanel Style="{StaticResource {x:Static t:K.Fact}}" MaxWidth="420">
+            <UniformGrid Margin="0,20,0,0" Columns="3">
+              <StackPanel Style="{StaticResource {x:Static t:K.Fact}}">
                 <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.TaskName}"/>
                 <TextBlock Text="{Binding TaskName}">
                   <TextBlock.Style>
@@ -146,18 +146,18 @@
               </StackPanel>
               <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Who.Name}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
               <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Privilege}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Privilege}"/></StackPanel>
-            </WrapPanel>
+            </UniformGrid>
             <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,8,0,10" Text="{x:Static t:Copy+Detail.Code}"/>
             <ContentPresenter Margin="0,0,0,16" Content="{Binding Cmd}" ContentTemplate="{StaticResource {x:Static t:K.CodeTpl}}"/>
 
             <StackPanel Visibility="{Binding HasResult, Converter={StaticResource {x:Static t:K.Vis}}}">
               <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,10,0,10" Text="{x:Static t:Copy+Detail.Result}"/>
-              <WrapPanel>
+              <UniformGrid Columns="2">
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.ExitCode}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding ExitCode}"/></StackPanel>
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Identity}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Identity}"/></StackPanel>
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Engine}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Engine}"/></StackPanel>
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Environment}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Environment}"/></StackPanel>
-              </WrapPanel>
+              </UniformGrid>
             </StackPanel>
 
             <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,10,0,6" Text="{x:Static t:Copy+Detail.Output}"/>

@@ -59,10 +59,18 @@ public static class Theme
         Fonts(res);
     }
 
-    /// <summary>UI face follows the interface language so each language sits on its own native baseline.</summary>
+    /// <summary>
+    /// Everything app-level that follows the interface language. UI face: each language sits on its own native baseline.
+    /// Shared templates read labels with x:Static once, when the dictionary loads, so Styles is loaded again under the
+    /// current language; windows built afterwards (App.Relang rebuilds the open one) pick up the fresh templates.
+    /// </summary>
     public static void Fonts(ResourceDictionary res)
     {
         res[K.UiFont] = new FontFamily(L.Current == Lang.En ? Names.EnUiFont : Names.ZhUiFont);
         res[K.MonoFont] = new FontFamily(Names.MonoFont);
+        var src = new Uri(Names.Styles, UriKind.Absolute);
+        var md = res.MergedDictionaries;
+        for (int i = 0; i < md.Count; i++)
+            if (md[i].Source == src) { md[i] = new ResourceDictionary { Source = src }; return; }
     }
 }

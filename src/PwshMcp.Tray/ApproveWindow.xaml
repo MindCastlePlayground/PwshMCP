@@ -33,10 +33,10 @@
           <TextBlock Style="{StaticResource {x:Static t:K.Task}}" Text="{Binding TaskName}" AutomationProperties.Name="{Binding TaskName}"/>
           <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Text="{x:Static t:Copy+Detail.TaskNote}"/>
           <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,14,0,0" Text="{Binding Reason}"/>
-          <WrapPanel Margin="0,20,0,0">
+          <UniformGrid Margin="0,20,0,0" Columns="2">
             <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Approve.Requester}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
             <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>
-          </WrapPanel>
+          </UniformGrid>
           <!-- The real permission scope: the authorization key, user and session are never hidden behind the readable name. -->
           <Border Style="{StaticResource {x:Static t:K.Scope}}">
             <StackPanel>

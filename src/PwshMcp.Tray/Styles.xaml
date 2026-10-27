@@ -117,10 +117,9 @@
     <Setter Property="MinWidth" Value="58"/>
   </Style>
 
-  <!-- Facts: label over value, wraps as a unit -->
+  <!-- Facts: label over value in a fixed UniformGrid column; text wraps inside it, so columns and order never depend on font width -->
   <Style x:Key="{x:Static t:K.Fact}" TargetType="StackPanel">
-    <Setter Property="Margin" Value="0,0,36,14"/>
-    <Setter Property="MinWidth" Value="150"/>
+    <Setter Property="Margin" Value="0,0,24,14"/>
   </Style>
 
   <!-- Identifiers: verbatim, selectable, wrap anywhere so long keys and SIDs never clip. -->

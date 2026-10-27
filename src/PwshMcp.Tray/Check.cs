@@ -243,6 +243,7 @@ public static class Check
             main.detail.BeginAnimation(UIElement.OpacityProperty, null);
             main.rise.BeginAnimation(TranslateTransform.YProperty, null);
             foreach (var w in MainWidths) Lay(host, w, MainHeight, $"{Report.Main} {tag} {t} {w}px", dir, Report.Main, tag, $"{t}-{w}");
+            Shared(host, $"{Report.Main} {tag} {t}", SharedOn[t]);
         }
         Note(vm.Requests.Count > 0 && vm.Access.Count > 0 && vm.Tasks.Count > 0, Report.Layout, $"{Report.Main} {tag} sample data loaded");
 
@@ -251,6 +252,50 @@ public static class Check
         avm.Seed(s.Grants[0], s.Jobs.Where(j => j.GrantId == s.Grants[0].Id));
         var ah = Detach(new ApproveWindow(avm), K.Panel);
         foreach (var w in ApproveWidths) Lay(ah, w, ApproveHeight, $"{Report.Approve} {tag} {w}px", dir, Report.Approve, tag, w.ToString());
+        Shared(ah, $"{Report.Approve} {tag}", [Who(nameof(Copy.Who.Scope))]);
+
+        // The whole highlighted sample at full height: the detail pane only shows its first screen.
+        foreach (var w in CodeWidths)
+        {
+            var ch = Host(new CodeView { Code = Samples[0] + LongLine, MaxBody = double.PositiveInfinity }, K.Code);
+            ch.Measure(new Size(w, double.PositiveInfinity));
+            Lay(ch, w, (int)Math.Ceiling(ch.DesiredSize.Height), $"{Report.Wrap} {tag} {w}px", dir, Report.Wrap, tag, w.ToString());
+        }
+    }
+
+    static readonly int[] CodeWidths = [360, 900];
+
+    static PropertyInfo Who(string n) => typeof(Copy.Who).GetProperty(n)!;
+    static PropertyInfo Det(string n) => typeof(Copy.Detail).GetProperty(n)!;
+    static PropertyInfo Dia(string n) => typeof(Copy.Diag).GetProperty(n)!;
+
+    /// <summary>Labels from app-level shared templates, per tab: they must follow a language switch like the window's own labels.</summary>
+    static readonly Dictionary<Tab, PropertyInfo[]> SharedOn = new()
+    {
+        [Tab.Requests] = [Who(nameof(Copy.Who.Scope)), Det(nameof(Copy.Detail.Cwd))],
+        [Tab.Access] = [Who(nameof(Copy.Who.Scope)), Dia(nameof(Copy.Diag.Head))],
+        [Tab.Tasks] = [Det(nameof(Copy.Detail.Cwd)), Dia(nameof(Copy.Diag.Head))],
+    };
+
+    /// <summary>Reads the text actually laid out, not the Copy property: the current language must be shown and the other absent.</summary>
+    static void Shared(Border host, string what, PropertyInfo[] props)
+    {
+        var all = Texts(host).ToList();
+        var keep = L.Current;
+        foreach (var p in props)
+        {
+            var mine = Read(p, keep); var theirs = Read(p, keep == Lang.Zh ? Lang.En : Lang.Zh);
+            L.Current = keep;
+            bool has = all.Any(t => t.StartsWith(mine)), stale = all.Any(t => t.StartsWith(theirs));
+            Note(has && !stale, Report.Keys, $"{what} {p.DeclaringType?.Name}.{p.Name}: \"{mine}\" shown={has}, \"{theirs}\" shown={stale}");
+        }
+    }
+
+    static IEnumerable<string> Texts(DependencyObject d)
+    {
+        if (d is TextBlock tb) yield return tb.Text;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            foreach (var c in Texts(VisualTreeHelper.GetChild(d, i))) yield return c;
     }
 
     static void Lay(Border host, int w, int h, string what, string? dir, string kind, string tag, string size)

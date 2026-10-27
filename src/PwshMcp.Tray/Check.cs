@@ -87,7 +87,7 @@ public static class Check
     [
         ("Get-ChildItem -Path 'C:\\x' | Where-Object { $_.Length -gt 10 } # tail", "Get-ChildItem", Syn.Cmd),
         ("Get-ChildItem -Path 'C:\\x' | Where-Object { $_.Length -gt 10 } # tail", "-Path", Syn.Param),
-        ("Get-ChildItem -Path 'C:\\x' | Where-Object { $_.Length -gt 10 } # tail", "'/workspace", Syn.Str),
+        ("Get-ChildItem -Path 'C:\\x' | Where-Object { $_.Length -gt 10 } # tail", "'C:", Syn.Str),
         ("Get-ChildItem -Path 'C:\\x' | Where-Object { $_.Length -gt 10 } # tail", "$_", Syn.Var),
         ("Get-ChildItem -Path 'C:\\x' | Where-Object { $_.Length -gt 10 } # tail", "10", Syn.Num),
         ("Get-ChildItem -Path 'C:\\x' | Where-Object { $_.Length -gt 10 } # tail", "# tail", Syn.Comment),
@@ -169,7 +169,7 @@ public static class Check
     // ---- windows: layout in both languages, optional PNGs ---------------------------------------------------------
 
     static readonly DateTimeOffset Now = DateTimeOffset.Now;
-    static readonly string LongDesc = string.Concat(Enumerable.Repeat("检查磁盘空间并清理临时文件 Check disk space and clean temp files. ", 18))[..1000];
+    static readonly string LongDesc = string.Concat(Enumerable.Repeat("检查磁盘空间并清理临时文件 Check disk space and clean temp files. ", 32))[..1000];
 
     static RunSpec Spec(string desc, string code) => new()
     {

@@ -148,7 +148,8 @@
   </Style>
 
   <!-- One fact row: label column shared across the list so values line up in both languages. -->
-  <DataTemplate x:Key="{x:Static t:K.Facts}" DataType="{x:Type t:Fact}">
+  <!-- No DataType here: with an x:Static key plus DataType, BAML registers DataTemplateKey(Fact) and the named key never exists. -->
+  <DataTemplate x:Key="{x:Static t:K.Facts}">
     <Grid Margin="0,0,0,8">
       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="factLabel"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
       <TextBlock FontFamily="{DynamicResource {x:Static t:K.UiFont}}" FontSize="12" Foreground="{DynamicResource {x:Static t:K.Muted}}"
@@ -356,4 +357,42 @@
       </Setter.Value>
     </Setter>
   </Style>
+
+  <!-- Shared detail templates. Own keys (never a style or brush key) and app-level, so every host resolves them. -->
+  <!-- Command block: directory, wrapped highlighted code, run settings -->
+  <DataTemplate x:Key="{x:Static t:K.CodeTpl}">
+    <StackPanel>
+      <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,0,0,6" TextWrapping="Wrap">
+        <Run Text="{x:Static t:Copy+Detail.Cwd}"/><Run Text="  "/><Run Text="{Binding Cwd, Mode=OneWay}" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}"/>
+      </TextBlock>
+      <t:CodeView Code="{Binding Code, Mode=OneWay}"/>
+      <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="2,6,0,0" Text="{Binding Meta, Mode=OneWay}" TextWrapping="Wrap"/>
+    </StackPanel>
+  </DataTemplate>
+  <!-- Description leads; code stays underneath as the detail -->
+  <DataTemplate x:Key="{x:Static t:K.CmdTpl}">
+    <StackPanel Margin="0,0,0,18">
+      <TextBlock Style="{StaticResource {x:Static t:K.Desc}}" Margin="0,0,0,8" Text="{Binding Desc, Mode=OneWay}" AutomationProperties.Name="{Binding Desc, Mode=OneWay}"/>
+      <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource {x:Static t:K.CodeTpl}}"/>
+    </StackPanel>
+  </DataTemplate>
+  <!-- What the grant binds to: shown in full wherever approve or revoke is offered -->
+  <DataTemplate x:Key="{x:Static t:K.ScopeTpl}">
+    <Border Style="{StaticResource {x:Static t:K.Scope}}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,0,0,10" FontWeight="SemiBold" Foreground="{DynamicResource {x:Static t:K.Ink}}" Text="{x:Static t:Copy+Who.Scope}"/>
+        <ItemsControl ItemsSource="{Binding Scope}" ItemTemplate="{StaticResource {x:Static t:K.Facts}}" Grid.IsSharedSizeScope="True" Focusable="False"/>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,6" TextWrapping="Wrap" Text="{x:Static t:Copy+Who.ScopeNote}"/>
+      </StackPanel>
+    </Border>
+  </DataTemplate>
+  <!-- Internal identifiers: collapsed, verbatim, selectable -->
+  <DataTemplate x:Key="{x:Static t:K.DiagTpl}">
+    <Expander Style="{StaticResource {x:Static t:K.Diag}}" Header="{x:Static t:Copy+Diag.Head}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,0,0,10" TextWrapping="Wrap" Text="{x:Static t:Copy+Diag.Note}"/>
+        <ItemsControl ItemsSource="{Binding Diag}" ItemTemplate="{StaticResource {x:Static t:K.Facts}}" Grid.IsSharedSizeScope="True" Focusable="False"/>
+      </StackPanel>
+    </Expander>
+  </DataTemplate>
 </ResourceDictionary>

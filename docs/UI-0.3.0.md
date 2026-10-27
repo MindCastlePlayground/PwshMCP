@@ -37,7 +37,8 @@ PwshMcp.Tray.exe --render-check [输出目录]
 
 ## 限制
 
-- 未构建、未运行：自检和渲染结果都还没有实际产出，也还没有视觉评审证据。需要主代理构建后跑 `--render-check` 并检查 PNG。
+- 本地诊断构建（Release，输出到 Temp）运行 `--render-check`：88 项检查，0 项失败，生成 22 张 PNG（中/英 × 主窗口三页 × 720/1000/1400，批准窗 520/640）。正式验收仍以主代理提交后的 `artifacts/package` 结果为准。
+- 修复了一个真实资源缺陷：`K.Facts` 这个 DataTemplate 同时写了 `x:Static` 键和 `DataType`，BAML 实际注册的是 `DataTemplateKey(Fact)`，所以 `pm.facts` 根本不存在，真实窗口同样会抛 XamlParseException。现在去掉了 `DataType`。另外，原来 MainWindow 的本地模板键 `pm.scope`/`pm.diag`/`pm.code` 与全局的 `K.Scope`(样式)、`K.Diag`(样式)、`K.Code`(画刷)重名，这些模板已改为 `K.ScopeTpl`/`K.DiagTpl`/`K.CodeTpl`/`K.CmdTpl`，并移到 `Styles.xaml`。键值带 `x:Static` 的 DataTemplate 一律不写 `DataType`。
 - 超过 20000 字符的代码以纯文本显示（不高亮），复制仍为原文。
 - 部分选区遇到混合换行时，统一按命令的首个换行风格还原；全选或不选时复制的总是原文。
 - 裁切检测只覆盖 TextBlock 的布局裁切，不覆盖 ScrollViewer 内可滚动的溢出；那部分属于预期行为。

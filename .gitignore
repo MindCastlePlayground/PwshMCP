@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+discussion/*.json
+discussion/*.stderr.txt

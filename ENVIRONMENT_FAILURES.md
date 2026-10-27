@@ -27,3 +27,6 @@
 - 桌面工具可枚举到已打开的 PwshMCP 窗口，但首次 `get_window_state` 返回 `Computer Use app approval timed out`；未获得截图。需要用户完成工具的应用访问许可后重试，不通过其他截图路径绕过许可。
 - 后续应用访问已可读取控件，但截图先报 `FrameArrived timed out: timed out waiting on channel`，刷新窗口身份并激活后的单次恢复仍报 `window capture timed out: timed out waiting on channel`。点击请求页报 `coordinate input geometry is unavailable`。停止该输入路径；只将控件读取记为通过，视觉和点击验收待人工/捕获工具恢复。
 - 后续审计字段任务首条只读命令仍遇到 `CreateProcessAsUserW failed: 5`；同范围 require_escalated 重跑成功，不重复默认启动路径。
+- 2026-10-28：显式系统PowerShell仍被执行器映射到WindowsApps pwsh，默认沙箱CreateProcessAsUserW失败5；原命令require_escalated成功。
+- 2026-10-28：读取尚未交付的tasks/readable-api-result.md导致组合检查返回1；后续先Test-Path再读取。发布代理误写UI已真实渲染，主代理回读后按原验收证据更正Release说明。
+- 2026-10-28：PowerShell 命令行中使用了 Bash 风格的 `{a,b}` 路径展开，触发 ParserError（“参数列表中缺少参数”）；后续使用 PowerShell 数组或逐个明确路径，不再使用该写法。

@@ -80,13 +80,13 @@ internal sealed class Broker
     }
     private Response Dispatch(Request r,Peer p)
     {
-        if(r.Client.Length>100 || r.Label.Length>500 || r.Id.Length>200 || r.TaskName is null || r.TaskName.Length>200)return Fail(Errors.Invalid);
+        if(r.Client.Length>100 || r.Label.Length>500 || r.Id.Length>200 || r.TaskName is null || r.TaskName.Length>200 || r.ClientName is not null&&!ClientNameRules.IsValid(r.ClientName))return Fail(Errors.Invalid);
         switch(r.Op)
         {
             case Ops.Snapshot:return new(){Snapshot=new(){ElevatedBroker=elevated,Grants=grants.Values.Where(g=>Owned(g,p)).ToList(),Jobs=jobs.Values.Where(j=>Owned(j,p)).OrderByDescending(j=>j.CreatedAt).Take(100).Select(SafeJob).ToList()}};
             case Ops.RequestAccess:
                 if(string.IsNullOrWhiteSpace(r.TaskName))return Fail(Errors.TaskName);
-                return new(){Grant=RequestGrant(r.Client,r.Label,r.TaskName,p)};
+                return new(){Grant=RequestGrant(r.Client,r.Label,r.TaskName,r.ClientName??"",p)};
             case Ops.Submit:return Submit(r,p);
             case Ops.Approve:return Approve(r,p);
             case Ops.Deny:case Ops.Revoke:
@@ -120,18 +120,20 @@ internal sealed class Broker
         {
             pending=grants.Values.FirstOrDefault(g=>Owned(g,p)&&g.Client==r.Client&&g.State==AccessState.Pending);
             if(pending is null&&string.IsNullOrWhiteSpace(r.TaskName))return Fail(Errors.TaskName);
-            pending??=RequestGrant(r.Client,r.Label,r.TaskName,p);
+            pending??=RequestGrant(r.Client,r.Label,r.TaskName,r.ClientName??"",p);
         }
-        var job=new JobInfo{Id=Ids(key),Client=r.Client,OwnerSid=p.Sid,SessionId=p.Session,Run=r.Run,GrantId=r.Run.Privilege==Privilege.Elevated?(active??pending)?.Id:null,State=r.Run.Privilege==Privilege.Normal?JobState.Queued:active is null?JobState.NeedsApproval:JobState.Queued};
+        var grant=active??pending;
+        if(grant is not null&&r.ClientName is not null)grant.ClientName=r.ClientName;
+        var job=new JobInfo{Id=Ids(key),Client=r.Client,ClientName=r.ClientName??"",TaskName=string.IsNullOrWhiteSpace(r.TaskName)?grant?.TaskName??"":r.TaskName.Trim(),OwnerSid=p.Sid,SessionId=p.Session,Run=r.Run,GrantId=r.Run.Privilege==Privilege.Elevated?grant?.Id:null,State=r.Run.Privilege==Privilege.Normal?JobState.Queued:active is null?JobState.NeedsApproval:JobState.Queued};
         jobs[job.Id]=job;fingerprints[key]=hash;
         return new(){Id=job.Id,Job=SafeJob(job),Grant=pending??active};
     }
-    private AccessInfo RequestGrant(string client,string label,string taskName,Peer p)
+    private AccessInfo RequestGrant(string client,string label,string taskName,string clientName,Peer p)
     {
         var found=grants.Values.FirstOrDefault(g=>Owned(g,p)&&g.Client==client&&g.State is AccessState.Pending or AccessState.Active);
-        if(found is not null)return found;
+        if(found is not null){if(clientName.Length>0)found.ClientName=clientName;return found;}
         if(grants.Count>=Names.MaxJobs)throw new InvalidOperationException(Errors.Full);
-        var g=new AccessInfo{Id=Guid.NewGuid().ToString("N"),Client=client,Label=label,TaskName=taskName.Trim(),User=p.User,Sid=p.Sid,SessionId=p.Session,State=AccessState.Pending};
+        var g=new AccessInfo{Id=Guid.NewGuid().ToString("N"),Client=client,ClientName=clientName,Label=label,TaskName=taskName.Trim(),User=p.User,Sid=p.Sid,SessionId=p.Session,State=AccessState.Pending};
         grants[g.Id]=g;return g;
     }
     private Response Approve(Request r,Peer p)

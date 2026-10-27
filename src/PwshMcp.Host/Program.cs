@@ -17,7 +17,7 @@ internal static class Program
             {
                 case Names.Broker:await new Broker().RunAsync(stop.Token);break;
                 case Names.Worker:await new Worker().RunAsync(Value(args,Names.Grant),Value(args,Names.Client)??"agent",int.TryParse(Value(args,Names.Parent),out var parent)?parent:0,stop.Token);break;
-                case Names.Mcp:await new Mcp(Value(args,Names.Client)??"agent").RunAsync(stop.Token);break;
+                case Names.Mcp:await new Mcp(Value(args,Names.Client)??"agent",Value(args,Names.DisplayName)).RunAsync(stop.Token);break;
                 case Names.Service:ServiceHost.Run();break;
                 case Names.Control:
                     var req=JsonSerializer.Deserialize<Request>(await Console.In.ReadToEndAsync(),Protocol.Json)??throw new InvalidDataException();

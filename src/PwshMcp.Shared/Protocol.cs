@@ -16,7 +16,7 @@ public static class Protocol
     public const string Pipe = "PwshMcp.Broker.v1";
     public const string Product = "PwshMCP";
 #endif
-    public const string Version = "0.2.0";
+    public const string Version = "0.3.0";
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) } };
 }
 public static class Ops
@@ -40,6 +40,7 @@ public sealed record RunSpec
 public sealed record Request
 {
     public string TaskName {get;init;}="";
+    public string? ClientName {get;init;}
     public string Op {get;init;}="";
     public string Id {get;init;}="";
     public string Client {get;init;}="agent";
@@ -53,6 +54,7 @@ public sealed record Request
 public sealed record AccessInfo
 {
     public string TaskName {get;init;}="";
+    public string ClientName {get;set;}="";
     public string Id {get;init;}="";
     public string Client {get;init;}="";
     public string Label {get;init;}="";
@@ -68,6 +70,8 @@ public sealed record JobInfo
 {
     public string Id {get;init;}="";
     public string Client {get;init;}="";
+    public string ClientName {get;init;}="";
+    public string TaskName {get;init;}="";
     public string OwnerSid {get;init;}="";
     public int SessionId {get;init;}
     public string? GrantId {get;set;}

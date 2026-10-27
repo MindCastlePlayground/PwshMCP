@@ -8,7 +8,9 @@ namespace PwshMcp.Host;
 internal static class McpNames
 {
     public const string Context="context";
-    public const string Description="description",TaskName="taskName";
+    public const string Description="description",TaskName="taskName",ClientInfo="clientInfo",Title="title";
+    public const string ClientNameGuide="Task id is only for later machine references. Do not present it as a user-facing title.";
+    public const string RunGuide="Provide taskName as the human-readable task title. The returned task id is only for later machine references, not a user-facing title.";
     public const string AuditGuide="Every run, session_reset and session_close must include a concise human-readable description of the action and purpose. Supply taskName when first requesting administrator access (including the first elevated run). Do not put credentials or secrets in audit descriptions or task names. These fields are retained in audit metadata. Task names do not narrow client-wide authorization.";
     public const string JsonRpc="jsonrpc",Id="id",Method="method",Params="params",Name="name",Arguments="arguments",Code="code",Cwd="cwd",Privilege="privilege",Environment="env",Session="session",Timeout="timeoutSeconds",RequestId="requestId",Cursor="cursor",Reason="reason",Profile="profile";
     public const string Initialize="initialize",List="tools/list",Call="tools/call",Ping="ping";
@@ -18,7 +20,9 @@ internal sealed class Mcp
 {
     private readonly BrokerClient broker=new();
     private readonly string client;
-    public Mcp(string name){client=name;}
+    private readonly string? configuredName;
+    private string displayName;
+    public Mcp(string name,string? display){client=name;configuredName=string.IsNullOrWhiteSpace(display)?null:display.Trim();if(configuredName is not null&&!ClientNameRules.IsValid(configuredName))throw new ArgumentException(nameof(display));displayName=configuredName??Protocol.Product;}
     private readonly Dictionary<string,Dictionary<string,string?>> contexts=[];
     public async Task RunAsync(CancellationToken ct)
     {
@@ -38,7 +42,7 @@ internal sealed class Mcp
                     var method=msg[McpNames.Method]?.GetValue<string>();
                     object result=method switch
                     {
-                        McpNames.Initialize=>new{protocolVersion="2025-06-18",capabilities=new{tools=new{listChanged=false}},serverInfo=new{name=Protocol.Product,version=Protocol.Version},instructions=McpNames.AuditGuide},
+                        McpNames.Initialize=>Initialize(msg),
                         McpNames.Ping=>new{},
                         McpNames.List=>new{tools=Tools()},
                         McpNames.Call=>await Call(msg[McpNames.Params],ct),
@@ -53,6 +57,21 @@ internal sealed class Mcp
             }
         }
         finally{try{if(!worker.HasExited)worker.Kill(true);}catch(InvalidOperationException){}worker.Dispose();}
+    }
+    private object Initialize(JsonNode msg)
+    {
+        if(configuredName is null)
+        {
+            var info=msg[McpNames.Params]?[McpNames.ClientInfo];
+            var title=ReadName(info?[McpNames.Title]);
+            var name=ReadName(info?[McpNames.Name]);
+            displayName=ClientNameRules.IsValid(title)?title!.Trim():ClientNameRules.IsValid(name)?name!.Trim():Protocol.Product;
+        }
+        return new{protocolVersion="2025-06-18",capabilities=new{tools=new{listChanged=false}},serverInfo=new{name=Protocol.Product,version=Protocol.Version},instructions=McpNames.AuditGuide};
+    }
+    private static string? ReadName(JsonNode? node)
+    {
+        try{return node?.GetValue<string>();}catch(InvalidOperationException){return null;}
     }
     private Process StartWorker()
     {
@@ -88,9 +107,9 @@ internal sealed class Mcp
                 var code=name==McpNames.SessionReset?SessionCommands.Reset:name==McpNames.SessionClose?SessionCommands.Close:a[McpNames.Code]?.GetValue<string>()??throw new InvalidDataException();
                 var privilege=a[McpNames.Privilege]?.GetValue<string>()??"normal";
                 if(privilege is not ("normal" or "elevated"))throw new InvalidDataException();
-                request=new(){Op=Ops.Submit,Id=a[McpNames.RequestId]?.GetValue<string>()??Guid.NewGuid().ToString("N"),Client=client,Label=a[McpNames.Reason]?.GetValue<string>()??"",TaskName=a[McpNames.TaskName]?.GetValue<string>()??"",Run=new(){Description=description,Code=code,Cwd=a[McpNames.Cwd]?.GetValue<string>()??Environment.CurrentDirectory,Privilege=privilege=="normal"?Privilege.Normal:Privilege.Elevated,Session=session,Env=env,TimeoutSeconds=a[McpNames.Timeout]?.GetValue<int>()??600,Profile=a[McpNames.Profile]?.GetValue<bool>()??false}};
+                request=new(){Op=Ops.Submit,Id=a[McpNames.RequestId]?.GetValue<string>()??Guid.NewGuid().ToString("N"),Client=client,ClientName=displayName,Label=a[McpNames.Reason]?.GetValue<string>()??"",TaskName=a[McpNames.TaskName]?.GetValue<string>()??"",Run=new(){Description=description,Code=code,Cwd=a[McpNames.Cwd]?.GetValue<string>()??Environment.CurrentDirectory,Privilege=privilege=="normal"?Privilege.Normal:Privilege.Elevated,Session=session,Env=env,TimeoutSeconds=a[McpNames.Timeout]?.GetValue<int>()??600,Profile=a[McpNames.Profile]?.GetValue<bool>()??false}};
             }
-            else request=new(){Op=name switch{McpNames.Status=>Ops.Status,McpNames.Output=>Ops.Output,McpNames.Cancel=>Ops.Cancel,McpNames.Grants=>Ops.Snapshot,McpNames.RequestAccess=>Ops.RequestAccess,_=>throw new NotSupportedException()},Id=a[McpNames.Id]?.GetValue<string>()??"",Client=client,Label=a[McpNames.Reason]?.GetValue<string>()??"",TaskName=a[McpNames.TaskName]?.GetValue<string>()??"",Cursor=a[McpNames.Cursor]?.GetValue<int>()??0};
+            else request=new(){Op=name switch{McpNames.Status=>Ops.Status,McpNames.Output=>Ops.Output,McpNames.Cancel=>Ops.Cancel,McpNames.Grants=>Ops.Snapshot,McpNames.RequestAccess=>Ops.RequestAccess,_=>throw new NotSupportedException()},Id=a[McpNames.Id]?.GetValue<string>()??"",Client=client,ClientName=displayName,Label=a[McpNames.Reason]?.GetValue<string>()??"",TaskName=a[McpNames.TaskName]?.GetValue<string>()??"",Cursor=a[McpNames.Cursor]?.GetValue<int>()??0};
             var response=await broker.SendAsync(request,ct);
             return Text(response,!response.Ok);
         }
@@ -104,9 +123,9 @@ internal sealed class Mcp
         var run=new Dictionary<string,object>{{McpNames.Code,S("string")},{McpNames.Cwd,S("string")},{McpNames.Privilege,new{type="string",@enum=new[]{"normal","elevated"}}},{McpNames.Environment,new{type="object",additionalProperties=new{type=new[]{"string","null"}}}},{McpNames.Session,S("string")},{McpNames.Timeout,S("integer")},{McpNames.RequestId,S("string")},{McpNames.Reason,S("string")},{McpNames.Profile,S("boolean")}};
         run[McpNames.Context]=S("string");
         var descriptionSchema=new{type="string",minLength=1,maxLength=1000,description="Audit description: what this command changes or checks, and why; do not include secrets."};
-        var taskSchema=new{type="string",minLength=1,maxLength=200,description="Task title for the first administrator permission request. Required when no active or pending grant exists."};
+        var taskSchema=new{type="string",minLength=1,maxLength=200,description="Human-readable task title shown to the user. Required when no active or pending grant exists."};
         run[McpNames.Description]=descriptionSchema;run[McpNames.TaskName]=taskSchema;
         var session=new Dictionary<string,object>{{McpNames.Session,S("string")},{McpNames.Privilege,S("string")},{McpNames.RequestId,S("string")},{McpNames.Description,descriptionSchema},{McpNames.TaskName,taskSchema}};
-        return [Tool(McpNames.Run,"Run PowerShell in a fresh environment, or an explicit persistent session. Returns task id immediately; elevated requests require tray authorization.",run,[McpNames.Code,McpNames.Description]),Tool(McpNames.Status,"Get task status. outcomeUnknown requires checking actual effects before retry.",new(){{McpNames.Id,S("string")}},[McpNames.Id]),Tool(McpNames.Output,"Read completed output using a character cursor.",new(){{McpNames.Id,S("string")},{McpNames.Cursor,S("integer")}},[McpNames.Id]),Tool(McpNames.Cancel,"Request cancellation; does not roll back changes.",new(){{McpNames.Id,S("string")}},[McpNames.Id]),Tool(McpNames.Grants,"Read authorization and task state.",[],[]),Tool(McpNames.RequestAccess,"Request a trusted administrator session via the tray without opening UAC.",new(){{McpNames.Reason,S("string")},{McpNames.TaskName,taskSchema}},[McpNames.TaskName]),Tool(McpNames.SessionReset,"Recreate a persistent shell with a fresh environment; loses shell state.",session,[McpNames.Session,McpNames.Description]),Tool(McpNames.SessionClose,"Close persistent shell.",session,[McpNames.Session,McpNames.Description]),Tool(McpNames.ContextSet,"Set explicit environment overrides for a named context/session; values are not logged.",new(){{McpNames.Session,S("string")},{McpNames.Environment,new{type="object",additionalProperties=new{type=new[]{"string","null"}}}}},[McpNames.Session,McpNames.Environment]),Tool(McpNames.ContextClear,"Clear explicit environment overrides.",new(){{McpNames.Session,S("string")}},[McpNames.Session]),Tool(McpNames.EnvInfo,"Describe environment sources and override names; never return secret values.",[],[])];
+        return [Tool(McpNames.Run,$"Run PowerShell in a fresh environment, or an explicit persistent session. {McpNames.RunGuide} Elevated requests require tray authorization.",run,[McpNames.Code,McpNames.Description]),Tool(McpNames.Status,$"Get task status. outcomeUnknown requires checking actual effects before retry. {McpNames.ClientNameGuide}",new(){{McpNames.Id,S("string")}},[McpNames.Id]),Tool(McpNames.Output,$"Read completed output using a character cursor. {McpNames.ClientNameGuide}",new(){{McpNames.Id,S("string")},{McpNames.Cursor,S("integer")}},[McpNames.Id]),Tool(McpNames.Cancel,$"Request cancellation; does not roll back changes. {McpNames.ClientNameGuide}",new(){{McpNames.Id,S("string")}},[McpNames.Id]),Tool(McpNames.Grants,"Read authorization and task state.",[],[]),Tool(McpNames.RequestAccess,"Request a trusted administrator session via the tray without opening UAC.",new(){{McpNames.Reason,S("string")},{McpNames.TaskName,taskSchema}},[McpNames.TaskName]),Tool(McpNames.SessionReset,"Recreate a persistent shell with a fresh environment; loses shell state.",session,[McpNames.Session,McpNames.Description]),Tool(McpNames.SessionClose,"Close persistent shell.",session,[McpNames.Session,McpNames.Description]),Tool(McpNames.ContextSet,"Set explicit environment overrides for a named context/session; values are not logged.",new(){{McpNames.Session,S("string")},{McpNames.Environment,new{type="object",additionalProperties=new{type=new[]{"string","null"}}}}},[McpNames.Session,McpNames.Environment]),Tool(McpNames.ContextClear,"Clear explicit environment overrides.",new(){{McpNames.Session,S("string")}},[McpNames.Session]),Tool(McpNames.EnvInfo,"Describe environment sources and override names; never return secret values.",[],[])];
     }
 }

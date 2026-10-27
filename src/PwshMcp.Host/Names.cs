@@ -2,8 +2,12 @@ namespace PwshMcp.Host;
 
 internal static class Names
 {
-    public const string Broker="broker", Worker="worker", Mcp="mcp", Service="service", Control="ctl", Grant="--grant", Normal="--normal", Client="--client", Parent="--parent", ServiceName="PwshMcpBroker";
-    public const int MaxMessage=10_000_000, MaxJobs=1000, MaxCode=524288;
+    public const string Broker="broker", Worker="worker", Mcp="mcp", Service="service", Control="ctl", Grant="--grant", Normal="--normal", Client="--client", DisplayName="--display-name", Parent="--parent", ServiceName="PwshMcpBroker";
+    public const int MaxMessage=10_000_000, MaxJobs=1000, MaxCode=524288, MaxClientName=120;
+}
+internal static class ClientNameRules
+{
+    public static bool IsValid(string? name)=>!string.IsNullOrWhiteSpace(name)&&name.Length<=Names.MaxClientName&&!name.Any(char.IsControl);
 }
 internal static class Errors
 {

@@ -1,0 +1,109 @@
+<Window x:Class="PwshMcp.Tray.ApproveWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:t="clr-namespace:PwshMcp.Tray"
+        Title="{Binding Title}" Width="640" Height="760" MinWidth="520" MinHeight="460"
+        WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True" ShowInTaskbar="True"
+        Background="{DynamicResource {x:Static t:K.Panel}}" FontFamily="{DynamicResource {x:Static t:K.UiFont}}"
+        Foreground="{DynamicResource {x:Static t:K.Ink}}">
+  <Window.Resources>
+    <Style x:Key="pm.fact" TargetType="StackPanel">
+      <Setter Property="Margin" Value="0,0,32,12"/>
+      <Setter Property="MinWidth" Value="140"/>
+    </Style>
+  </Window.Resources>
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+    <!-- The badge strip: admin context is unmistakable before reading anything else. -->
+    <Border Background="{DynamicResource {x:Static t:K.AccentSoft}}" Padding="28,14">
+      <StackPanel Orientation="Horizontal">
+        <Path Data="{StaticResource {x:Static t:K.Shield}}" Fill="{DynamicResource {x:Static t:K.Accent}}" Width="16" Height="18" Stretch="Uniform" VerticalAlignment="Center"/>
+        <TextBlock Margin="10,0,0,0" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title}"/>
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+      <StackPanel Margin="28,24,28,24">
+        <!-- Loading skeleton -->
+        <StackPanel Visibility="{Binding Shows, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}">
+          <Border Height="26" Width="360" HorizontalAlignment="Left" CornerRadius="6" Background="{DynamicResource {x:Static t:K.Raised}}"
+                  Visibility="{Binding Busy, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+          <Border Height="14" Width="460" Margin="0,14,0,0" HorizontalAlignment="Left" CornerRadius="4" Background="{DynamicResource {x:Static t:K.Raised}}"
+                  Visibility="{Binding Busy, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding Shows, Converter={StaticResource {x:Static t:K.Vis}}}">
+          <TextBlock Style="{StaticResource {x:Static t:K.Title}}" FontSize="24" Text="{Binding Head}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,10,0,0" Text="{Binding Reason}"/>
+          <WrapPanel Margin="0,20,0,0">
+            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Approve.Requester}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}"/></StackPanel>
+            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.User}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding User}"/></StackPanel>
+            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Session}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Session}"/></StackPanel>
+            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>
+          </WrapPanel>
+
+          <StackPanel Visibility="{Binding IsApprove, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,14,0,8" Text="{x:Static t:Copy+Approve.AllowsHead}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Text="{Binding Allows}"/>
+
+            <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Text="{Binding StartsHead}"/>
+            <ItemsControl ItemsSource="{Binding Waiting}" Focusable="False">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Margin="0,0,0,14">
+                    <TextBlock Style="{StaticResource {x:Static t:K.Label}}">
+                      <Run Text="{x:Static t:Copy+Detail.Cwd}"/><Run Text=" "/><Run Text="{Binding Cwd, Mode=OneWay}" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}"/>
+                    </TextBlock>
+                    <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" MaxHeight="180" Text="{Binding Code, Mode=OneWay}"/>
+                    <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="2,6,0,0" TextWrapping="Wrap" Text="{Binding Meta}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Style="{StaticResource {x:Static t:K.Body}}" FontSize="13" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding Later}"/>
+
+            <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Text="{x:Static t:Copy+Approve.DurationHead}"/>
+            <StackPanel IsEnabled="{Binding CanEdit}" KeyboardNavigation.DirectionalNavigation="Cycle">
+              <RadioButton Style="{StaticResource {x:Static t:K.Choice}}" GroupName="life" IsChecked="{Binding IsSignOut}" Content="{x:Static t:Copy+Approve.SignOut}"/>
+              <RadioButton Style="{StaticResource {x:Static t:K.Choice}}" GroupName="life" IsChecked="{Binding IsHour}" Content="{x:Static t:Copy+Approve.OneHour}"/>
+              <RadioButton Style="{StaticResource {x:Static t:K.Choice}}" GroupName="life" IsChecked="{Binding IsFour}" Content="{x:Static t:Copy+Approve.FourHours}"/>
+              <RadioButton Style="{StaticResource {x:Static t:K.Choice}}" GroupName="life" IsChecked="{Binding IsToday}" Content="{x:Static t:Copy+Approve.Today}"/>
+            </StackPanel>
+            <t:Band Margin="2,10,0,6" Start="{Binding Now, Mode=OneWay}" Now="{Binding Now, Mode=OneWay}" End="{Binding End, Mode=OneWay}" Span="{Binding BandSpan}"
+                    Fill="{DynamicResource {x:Static t:K.Accent}}" Track="{DynamicResource {x:Static t:K.Accent}}" Tick="{DynamicResource {x:Static t:K.Ink}}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Body}}" FontSize="13" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding EndText}"/>
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Background="{DynamicResource {x:Static t:K.Ground}}" Padding="28,16">
+      <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,14" Visibility="{Binding Message, Converter={StaticResource {x:Static t:K.Vis}}}">
+          <TextBlock x:Name="msg" FontSize="13" Text="{Binding Message}" AutomationProperties.LiveSetting="Assertive">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Static t:K.Body}}">
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding MessageTone}" Value="{x:Static t:Tone.Bad}"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Red}}"/></DataTrigger>
+                  <DataTrigger Binding="{Binding MessageTone}" Value="{x:Static t:Tone.On}"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Green}}"/></DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+        </DockPanel>
+        <DockPanel Grid.Row="1" LastChildFill="False">
+          <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Primary}}" Margin="10,0,0,0" Command="{Binding Go}" MinWidth="168"
+                  Visibility="{Binding ShowRecovery, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}" Content="{Binding ConfirmText}"/>
+          <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Primary}}" Margin="10,0,0,0" Command="{Binding Retry}"
+                  Visibility="{Binding ShowRecovery, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{x:Static t:Copy+Approve.Retry}"/>
+          <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Danger}}" Margin="10,0,0,0" Command="{Binding Revoke}"
+                  Visibility="{Binding ShowRecovery, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{x:Static t:Copy+Approve.RevokeNow}"/>
+          <Button x:Name="cancel" DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Secondary}}" IsCancel="True" Click="OnCancel" Content="{Binding CancelText}"/>
+        </DockPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

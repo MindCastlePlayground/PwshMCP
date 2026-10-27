@@ -1,0 +1,319 @@
+<Window x:Class="PwshMcp.Tray.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:t="clr-namespace:PwshMcp.Tray"
+        Title="{x:Static t:Copy.Product}" Width="1000" Height="660" MinWidth="720" MinHeight="480"
+        WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        Background="{DynamicResource {x:Static t:K.Ground}}" FontFamily="{DynamicResource {x:Static t:K.UiFont}}"
+        Foreground="{DynamicResource {x:Static t:K.Ink}}">
+  <!--
+    THESIS: admin access as a visitor badge: asked for, checked, issued with a visible window, pulled any time. Refuses the log-console-with-toggle default.
+    OWN-WORLD: Windows neutrals following system theme, one indigo accent, reader-LED state colours always paired with line rules (dashed=waiting, solid=issued, struck=ended, slashed=offline). Badge silhouette = tray glyph = mark.
+    STORY: notice the amber dot, read who/why/what will run, approve through one UAC, watch the band, revoke in one step.
+    FIRST VIEWPORT: header strip (mark, connection, Revoke all); left segmented Requests/Access/Tasks list; right detail with sticky action bar; newest request preselected.
+    FORM: grounded #3 visitor desk/access badge; raises: gate board (new stays marked until viewed), exposure record (line-style state), dance score (band length = time). Seed c30e08ef.
+    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
+  -->
+  <Window.Resources>
+    <Style x:Key="pm.fact" TargetType="StackPanel">
+      <Setter Property="Margin" Value="0,0,36,14"/>
+      <Setter Property="MinWidth" Value="150"/>
+    </Style>
+
+    <!-- Commands waiting / command block -->
+    <DataTemplate x:Key="pm.cmd" DataType="{x:Type t:CmdVm}">
+      <StackPanel Margin="0,0,0,16">
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}">
+          <Run Text="{x:Static t:Copy+Detail.Cwd}"/><Run Text=" "/><Run Text="{Binding Cwd, Mode=OneWay}" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}"/>
+        </TextBlock>
+        <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" Text="{Binding Code, Mode=OneWay}"/>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="2,6,0,0" Text="{Binding Meta}" TextWrapping="Wrap"/>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Grant detail: request (pending) or access (issued / ended) -->
+    <DataTemplate DataType="{x:Type t:GrantVm}">
+      <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+          <StackPanel Margin="32,28,32,24">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+              <t:Chip Text="{Binding StateName}" Tone="{Binding Tone}"/>
+              <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="10,0,0,0" VerticalAlignment="Center" Text="{Binding Age}"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource {x:Static t:K.Title}}" Text="{Binding Head}"/>
+
+            <!-- Request -->
+            <StackPanel Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}">
+              <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,10,0,0" Text="{Binding Reason}"/>
+              <WrapPanel Margin="0,22,0,0">
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.User}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding User}"/></StackPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Session}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Session}"/></StackPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.RequestEnds}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding RequestEnds}"/></StackPanel>
+              </WrapPanel>
+              <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Text="{Binding WaitingHead}"/>
+              <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{x:Static t:Copy+Detail.NoWaiting}"
+                         Visibility="{Binding Waiting.Count, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}"/>
+              <ItemsControl ItemsSource="{Binding Waiting}" ItemTemplate="{StaticResource pm.cmd}" Focusable="False"/>
+            </StackPanel>
+
+            <!-- Access -->
+            <StackPanel Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}">
+              <Border Margin="0,20,0,0" Padding="22,18" CornerRadius="12" Background="{DynamicResource {x:Static t:K.Raised}}">
+                <StackPanel>
+                  <Grid>
+                    <StackPanel HorizontalAlignment="Left">
+                      <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Requested}"/>
+                      <TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Requested}"/>
+                    </StackPanel>
+                    <StackPanel HorizontalAlignment="Right">
+                      <TextBlock Style="{StaticResource {x:Static t:K.Label}}" HorizontalAlignment="Right" Text="{x:Static t:Copy+Detail.Ends}"/>
+                      <TextBlock Style="{StaticResource {x:Static t:K.Value}}" HorizontalAlignment="Right" Text="{Binding Ends}"/>
+                    </StackPanel>
+                  </Grid>
+                  <t:Band Margin="0,14,0,12" Start="{Binding Start}" End="{Binding End}" Now="{Binding Now}"
+                          Fill="{DynamicResource {x:Static t:K.Green}}" Track="{DynamicResource {x:Static t:K.Line}}" Tick="{DynamicResource {x:Static t:K.Ink}}"/>
+                  <StackPanel Orientation="Horizontal" Visibility="{Binding IsActive, Converter={StaticResource {x:Static t:K.Vis}}}">
+                    <Grid Width="10" Height="10" Margin="0,0,8,0" VerticalAlignment="Center">
+                      <Ellipse Fill="{DynamicResource {x:Static t:K.Green}}" Visibility="{Binding WorkerOn, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+                      <Ellipse Stroke="{DynamicResource {x:Static t:K.Amber}}" StrokeThickness="1.5" StrokeDashArray="2 1.5" Visibility="{Binding WorkerOn, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}"/>
+                    </Grid>
+                    <TextBlock Style="{StaticResource {x:Static t:K.Value}}" FontSize="13" Text="{Binding Worker}"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Text="{x:Static t:Copy+Detail.Reason}"/>
+              <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Text="{Binding Reason}"/>
+              <WrapPanel Margin="0,20,0,0">
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.User}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding User}"/></StackPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Session}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Session}"/></StackPanel>
+              </WrapPanel>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="32,14">
+          <DockPanel LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" MaxWidth="460" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="13" Text="{Binding Notice}">
+              <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                  <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+                  <Style.Triggers><DataTrigger Binding="{Binding NoticeBad}" Value="True"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Red}}"/></DataTrigger></Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
+            <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Primary}}" Margin="10,0,0,0" Command="{Binding Approve}"
+                    Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}">
+              <StackPanel Orientation="Horizontal">
+                <Path Data="{StaticResource {x:Static t:K.Shield}}" Fill="{DynamicResource {x:Static t:K.AccentInk}}" Width="13" Height="14" Stretch="Uniform" Margin="0,0,8,0"/>
+                <AccessText Text="{x:Static t:Copy+Detail.Approve}"/>
+              </StackPanel>
+            </Button>
+            <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Danger}}" Margin="10,0,0,0" Command="{Binding Deny.Click}" Tag="{Binding Deny.Tag}"
+                    Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{Binding Deny.Text}"/>
+            <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Danger}}" Margin="10,0,0,0" Command="{Binding Revoke.Click}" Tag="{Binding Revoke.Tag}"
+                    Visibility="{Binding IsActive, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{Binding Revoke.Text}"/>
+            <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Secondary}}" Margin="10,0,0,0" Command="{Binding Restart}">
+              <Button.Visibility>
+                <MultiBinding Converter="{x:Static t:All.Vis}"><Binding Path="IsActive"/><Binding Path="WorkerOn" Converter="{x:Static t:All.Not}"/></MultiBinding>
+              </Button.Visibility>
+              <StackPanel Orientation="Horizontal">
+                <Path Data="{StaticResource {x:Static t:K.Shield}}" Fill="{DynamicResource {x:Static t:K.Accent}}" Width="13" Height="14" Stretch="Uniform" Margin="0,0,8,0"/>
+                <AccessText Text="{x:Static t:Copy+Detail.RestartWorker}"/>
+              </StackPanel>
+            </Button>
+          </DockPanel>
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Task detail -->
+    <DataTemplate DataType="{x:Type t:JobVm}">
+      <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+          <StackPanel Margin="32,28,32,24">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+              <t:Chip Text="{Binding StateName}" Tone="{Binding Tone}"/>
+              <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="10,0,0,0" VerticalAlignment="Center" Text="{Binding Submitted}"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource {x:Static t:K.Title}}" Text="{Binding Head}"/>
+            <WrapPanel Margin="0,20,0,0">
+              <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Privilege}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Privilege}"/></StackPanel>
+            </WrapPanel>
+            <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,8,0,10" Text="{x:Static t:Copy+Detail.Command}"/>
+            <ContentPresenter Content="{Binding Cmd}" ContentTemplate="{StaticResource pm.cmd}"/>
+
+            <StackPanel Visibility="{Binding HasResult, Converter={StaticResource {x:Static t:K.Vis}}}">
+              <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,10,0,10" Text="{x:Static t:Copy+Detail.Result}"/>
+              <WrapPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.ExitCode}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding ExitCode}"/></StackPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Identity}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Identity}"/></StackPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Engine}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Engine}"/></StackPanel>
+                <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Environment}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Environment}"/></StackPanel>
+              </WrapPanel>
+            </StackPanel>
+
+            <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,10,0,6" Text="{x:Static t:Copy+Detail.Output}"/>
+            <DockPanel LastChildFill="True">
+              <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Quiet}}" Command="{Binding Toggle}"
+                      Visibility="{Binding HasResult, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{Binding ToggleText}"/>
+              <TextBlock Style="{StaticResource {x:Static t:K.Body}}" FontSize="13" Foreground="{DynamicResource {x:Static t:K.Muted}}" VerticalAlignment="Center" Text="{Binding OutputHint}"/>
+            </DockPanel>
+            <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" Margin="0,10,0,0" MaxHeight="320" Text="{Binding Output, Mode=OneWay}"
+                     Visibility="{Binding Shown, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+            <StackPanel Visibility="{Binding Errors, Converter={StaticResource {x:Static t:K.Vis}}}">
+              <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,14,0,4" Foreground="{DynamicResource {x:Static t:K.Red}}" Text="{x:Static t:Copy+Detail.ErrorStream}"/>
+              <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" Text="{Binding Errors, Mode=OneWay}"/>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="32,14">
+          <DockPanel LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" MaxWidth="460" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="13" Text="{Binding Notice}">
+              <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                  <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+                  <Style.Triggers><DataTrigger Binding="{Binding NoticeBad}" Value="True"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Red}}"/></DataTrigger></Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
+            <Button DockPanel.Dock="Right" Style="{StaticResource {x:Static t:K.Danger}}" Command="{Binding Cancel.Click}" Tag="{Binding Cancel.Tag}"
+                    Visibility="{Binding CanCancel, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{Binding Cancel.Text}"/>
+          </DockPanel>
+        </Border>
+      </Grid>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+    <!-- Header strip -->
+    <Border Background="{DynamicResource {x:Static t:K.Panel}}" BorderBrush="{DynamicResource {x:Static t:K.Line}}" BorderThickness="0,0,0,1" Padding="24,12">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <Path Data="{StaticResource {x:Static t:K.Mark}}" Fill="{DynamicResource {x:Static t:K.Accent}}" Width="22" Height="22" Stretch="Uniform"/>
+          <TextBlock Margin="10,0,24,0" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Text="{x:Static t:Copy.Product}"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <t:Chip Text="{Binding ConnTitle}" Tone="{Binding ConnTone}"/>
+          <TextBlock Margin="12,0,0,0" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}"
+                     Text="{Binding ConnDetail}" ToolTip="{Binding ConnDetail}"/>
+          <TextBlock Margin="12,0,0,0" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding Stale}"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock MaxWidth="320" Margin="0,0,12,0" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource {x:Static t:K.Red}}" Text="{Binding Notice}"/>
+          <Button Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,0,10,0" Command="{Binding Retry}" Content="{x:Static t:Copy+Conn.Retry}"
+                  Visibility="{Binding Online, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}"/>
+          <Button Style="{StaticResource {x:Static t:K.Danger}}" Command="{Binding RevokeAll.Click}" Tag="{Binding RevokeAll.Tag}" Content="{Binding RevokeAll.Text}"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="360" MinWidth="280" MaxWidth="560"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*" MinWidth="380"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Left: segmented lists -->
+      <DockPanel Margin="16,16,12,12">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource {x:Static t:K.Raised}}" CornerRadius="8" Padding="3" Margin="0,0,0,12">
+          <UniformGrid Columns="3">
+            <RadioButton Style="{StaticResource {x:Static t:K.Segment}}" GroupName="tabs" IsChecked="{Binding IsReq}" Content="{Binding RequestsTab}"/>
+            <RadioButton Style="{StaticResource {x:Static t:K.Segment}}" GroupName="tabs" IsChecked="{Binding IsAcc}" Content="{Binding AccessTab}"/>
+            <RadioButton Style="{StaticResource {x:Static t:K.Segment}}" GroupName="tabs" IsChecked="{Binding IsTask}" Content="{Binding TasksTab}"/>
+          </UniformGrid>
+        </Border>
+        <Grid>
+          <StackPanel Margin="12,28,12,0" Visibility="{Binding IsEmpty, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <TextBlock FontSize="15" FontWeight="SemiBold" Text="{Binding EmptyHead}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,6,0,0" FontSize="13" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding EmptyBody}"/>
+          </StackPanel>
+
+          <ListBox x:Name="reqList" ItemsSource="{Binding Requests}" SelectedItem="{Binding SelReq}" ItemContainerStyle="{StaticResource {x:Static t:K.Row}}"
+                   Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{x:Static t:Copy+Tabs.Requests}"
+                   Visibility="{Binding IsReq, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,6,0,0" HorizontalAlignment="Left" Fill="{DynamicResource {x:Static t:K.Amber}}"
+                           Visibility="{Binding IsNew, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding Client}"/>
+                    <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding ReasonLine}"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" FontSize="12" Margin="10,2,0,0" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding Age}"/>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <ListBox x:Name="accList" ItemsSource="{Binding Access}" SelectedItem="{Binding SelAcc}" ItemContainerStyle="{StaticResource {x:Static t:K.Row}}"
+                   Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{x:Static t:Copy+Tabs.Access}"
+                   Visibility="{Binding IsAcc, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <StackPanel>
+                  <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,8,0,10" Text="{x:Static t:Copy+Tabs.Ended}"
+                             Visibility="{Binding Divider, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding Client}"/>
+                      <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding RowSub}"/>
+                    </StackPanel>
+                    <t:Chip Grid.Column="1" Margin="10,0,0,0" Text="{Binding StateName}" Tone="{Binding Tone}"/>
+                  </Grid>
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <ListBox x:Name="taskList" ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelTask}" ItemContainerStyle="{StaticResource {x:Static t:K.Row}}"
+                   Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{x:Static t:Copy+Tabs.Tasks}"
+                   VirtualizingPanel.IsVirtualizing="True" Visibility="{Binding IsTask, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock FontSize="12.5" TextTrimming="CharacterEllipsis" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}" Text="{Binding Line}"/>
+                    <TextBlock FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}">
+                      <Run Text="{Binding Client, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding Age, Mode=OneWay}"/>
+                    </TextBlock>
+                  </StackPanel>
+                  <t:Chip Grid.Column="1" Margin="10,0,0,0" Text="{Binding StateName}" Tone="{Binding Tone}"/>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </DockPanel>
+
+      <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent" ResizeBehavior="PreviousAndNext" Focusable="False">
+        <GridSplitter.Template>
+          <ControlTemplate TargetType="GridSplitter">
+            <Border Background="Transparent"><Rectangle Width="1" Fill="{DynamicResource {x:Static t:K.Line}}"/></Border>
+          </ControlTemplate>
+        </GridSplitter.Template>
+      </GridSplitter>
+
+      <!-- Right: detail -->
+      <Border Grid.Column="2" Background="{DynamicResource {x:Static t:K.Panel}}">
+        <Grid>
+          <TextBlock Margin="32" FontSize="14" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{x:Static t:Copy+Empty.Select}" TextWrapping="Wrap"
+                     Visibility="{Binding Selected, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}"/>
+          <ContentControl x:Name="detail" Content="{Binding Selected}" Focusable="False" IsTabStop="False">
+            <ContentControl.RenderTransform><TranslateTransform x:Name="rise"/></ContentControl.RenderTransform>
+          </ContentControl>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

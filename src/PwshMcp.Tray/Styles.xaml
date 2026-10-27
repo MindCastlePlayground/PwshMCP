@@ -1,0 +1,244 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:t="clr-namespace:PwshMcp.Tray">
+
+  <t:Vis x:Key="{x:Static t:K.Vis}"/>
+  <!-- UAC shield silhouette and the badge mark (same geometry as the tray glyph, 16-unit box, slot punched). -->
+  <Geometry x:Key="{x:Static t:K.Shield}">M8,0.8 L14.2,3.2 L14.2,7.8 C14.2,11.4 11.6,14.2 8,15.4 C4.4,14.2 1.8,11.4 1.8,7.8 L1.8,3.2 Z</Geometry>
+  <Geometry x:Key="{x:Static t:K.Mark}">F0 M5.7,1.5 L10.3,1.5 A2.2,2.2 0 0 1 12.5,3.7 L12.5,12.3 A2.2,2.2 0 0 1 10.3,14.5 L5.7,14.5 A2.2,2.2 0 0 1 3.5,12.3 L3.5,3.7 A2.2,2.2 0 0 1 5.7,1.5 Z M6.75,3.7 L9.25,3.7 A0.75,0.75 0 0 1 9.25,5.2 L6.75,5.2 A0.75,0.75 0 0 1 6.75,3.7 Z</Geometry>
+
+  <Style x:Key="pm.focusVisual">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-3" RadiusX="8" RadiusY="8" StrokeThickness="2" Stroke="{DynamicResource {x:Static t:K.Focus}}" SnapsToDevicePixels="True"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Buttons: one shape, four intents. -->
+  <Style x:Key="{x:Static t:K.Secondary}" TargetType="Button">
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
+    <Setter Property="FontSize" Value="13.5"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="Background" Value="{DynamicResource {x:Static t:K.Raised}}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Line}}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="16,0"/>
+    <Setter Property="MinHeight" Value="34"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="AutomationProperties.Name" Value="{Binding Content, RelativeSource={RelativeSource Self}, Converter={x:Static t:All.Plain}}"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource pm.focusVisual}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid SnapsToDevicePixels="True">
+            <Border x:Name="bg" CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"/>
+            <Border x:Name="veil" CornerRadius="6" Background="Transparent"/>
+            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="veil" Property="Background" Value="{DynamicResource {x:Static t:K.Hover}}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="veil" Property="Background" Value="{DynamicResource {x:Static t:K.Press}}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45"/>
+              <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="{x:Static t:K.Primary}" TargetType="Button" BasedOn="{StaticResource {x:Static t:K.Secondary}}">
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.AccentInk}}"/>
+    <Setter Property="Background" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+  </Style>
+  <Style x:Key="{x:Static t:K.Danger}" TargetType="Button" BasedOn="{StaticResource {x:Static t:K.Secondary}}">
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Red}}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Style.Triggers>
+      <Trigger Property="Tag" Value="armed">
+        <Setter Property="Background" Value="{DynamicResource {x:Static t:K.RedSoft}}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Red}}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="{x:Static t:K.Quiet}" TargetType="Button" BasedOn="{StaticResource {x:Static t:K.Secondary}}">
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="MinHeight" Value="30"/>
+  </Style>
+
+  <!-- Segmented tabs -->
+  <Style x:Key="{x:Static t:K.Segment}" TargetType="RadioButton">
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource pm.focusVisual}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="bg" CornerRadius="6" Padding="10,6" Background="Transparent">
+            <ContentPresenter HorizontalAlignment="Center" RecognizesAccessKey="True"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.Hover}}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.Panel}}"/>
+              <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+              <Setter Property="FontWeight" Value="SemiBold"/>
+              <Setter TargetName="bg" Property="Effect">
+                <Setter.Value>
+                  <DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Opacity="0.14"/>
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Duration choices in the approval window -->
+  <Style x:Key="{x:Static t:K.Choice}" TargetType="RadioButton">
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="Margin" Value="0,0,0,6"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="AutomationProperties.Name" Value="{Binding Content, RelativeSource={RelativeSource Self}, Converter={x:Static t:All.Plain}}"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource pm.focusVisual}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="bg" CornerRadius="8" Padding="12,9" BorderThickness="1" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Background="{DynamicResource {x:Static t:K.Panel}}">
+            <DockPanel>
+              <Grid Width="18" Height="18" Margin="0,0,12,0" VerticalAlignment="Center">
+                <Ellipse x:Name="ring" Stroke="{DynamicResource {x:Static t:K.Muted}}" StrokeThickness="1.5"/>
+                <Ellipse x:Name="dot" Width="8" Height="8" Fill="{DynamicResource {x:Static t:K.Accent}}" Visibility="Collapsed"/>
+              </Grid>
+              <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
+            </DockPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.Raised}}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="bg" Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.AccentSoft}}"/>
+              <Setter TargetName="ring" Property="Stroke" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+              <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.5"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- List rows -->
+  <Style x:Key="{x:Static t:K.Row}" TargetType="ListBoxItem">
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="Margin" Value="0,0,0,2"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource pm.focusVisual}"/>
+    <Setter Property="AutomationProperties.Name" Value="{Binding Spoken}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="bg" CornerRadius="8" Padding="{TemplateBinding Padding}" Background="Transparent" SnapsToDevicePixels="True">
+            <ContentPresenter/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.Hover}}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.AccentSoft}}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Type -->
+  <Style x:Key="{x:Static t:K.Label}" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+    <Setter Property="Margin" Value="0,0,0,3"/>
+  </Style>
+  <Style x:Key="{x:Static t:K.Value}" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+  </Style>
+  <Style x:Key="{x:Static t:K.Body}" TargetType="TextBlock" BasedOn="{StaticResource {x:Static t:K.Value}}">
+    <Setter Property="LineHeight" Value="21"/>
+    <Setter Property="MaxWidth" Value="640"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+  </Style>
+  <Style x:Key="{x:Static t:K.Title}" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
+    <Setter Property="FontSize" Value="22"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+  <Style x:Key="{x:Static t:K.Section}" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="Margin" Value="0,26,0,10"/>
+  </Style>
+
+  <Style x:Key="{x:Static t:K.CodeBox}" TargetType="TextBox">
+    <Setter Property="IsReadOnly" Value="True"/>
+    <Setter Property="IsReadOnlyCaretVisible" Value="True"/>
+    <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.MonoFont}}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="SelectionBrush" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+    <Setter Property="CaretBrush" Value="{DynamicResource {x:Static t:K.Ink}}"/>
+    <Setter Property="TextWrapping" Value="NoWrap"/>
+    <Setter Property="AcceptsReturn" Value="True"/>
+    <Setter Property="MaxHeight" Value="240"/>
+    <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="bd" CornerRadius="8" Background="{DynamicResource {x:Static t:K.Code}}" BorderThickness="1" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="12,10">
+            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Focus}}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>

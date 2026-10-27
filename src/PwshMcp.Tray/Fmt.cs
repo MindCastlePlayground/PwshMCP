@@ -1,0 +1,80 @@
+using System.IO;
+using System.IO.Pipes;
+using PwshMcp.Shared;
+
+namespace PwshMcp.Tray;
+
+public enum Tone { Wait, On, Off, Bad, Info }
+
+/// <summary>Display formatting: time, state and errors.</summary>
+public static class Fmt
+{
+    public static string Ago(DateTimeOffset at)
+    {
+        var d = DateTimeOffset.UtcNow - at;
+        if (d.TotalSeconds < 45) return Copy.Time.JustNow;
+        if (d.TotalMinutes < 60) return string.Format(Copy.Time.Minutes, (int)d.TotalMinutes);
+        if (d.TotalHours < 24) return string.Format(Copy.Time.Hours, (int)d.TotalHours);
+        return string.Format(Copy.Time.Days, (int)d.TotalDays);
+    }
+
+    public static string Left(DateTimeOffset end)
+    {
+        var d = end - DateTimeOffset.UtcNow;
+        if (d <= TimeSpan.Zero) return Copy.State.Expired;
+        if (d.TotalHours < 1) return string.Format(Copy.Time.Left, string.Format(Copy.Time.MinutesShort, Math.Max(1, (int)Math.Ceiling(d.TotalMinutes))));
+        return string.Format(Copy.Time.Left, string.Format(Copy.Time.HoursMin, (int)d.TotalHours, d.Minutes));
+    }
+
+    public static string Clock(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.Clock);
+    public static string ClockSec(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.ClockSec);
+    public static string Full(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.Full);
+    public static string Stamp(DateTimeOffset at) => $"{Full(at)} · {Ago(at)}";
+
+    public static string Name(AccessState s) => s switch
+    {
+        AccessState.Pending => Copy.State.Pending, AccessState.Active => Copy.State.Active, AccessState.Denied => Copy.State.Denied,
+        AccessState.Revoked => Copy.State.Revoked, _ => Copy.State.Expired
+    };
+
+    public static Tone Tone(AccessState s) => s switch { AccessState.Pending => Tray.Tone.Wait, AccessState.Active => Tray.Tone.On, AccessState.Denied => Tray.Tone.Bad, _ => Tray.Tone.Off };
+
+    public static string Name(JobState s) => s switch
+    {
+        JobState.NeedsApproval => Copy.State.NeedsApproval, JobState.NeedsSession => Copy.State.NeedsSession, JobState.Queued => Copy.State.Queued,
+        JobState.Running => Copy.State.Running, JobState.Succeeded => Copy.State.Succeeded, JobState.Failed => Copy.State.Failed,
+        JobState.Cancelled => Copy.State.Cancelled, JobState.Rejected => Copy.State.Rejected, JobState.Expired => Copy.State.Expired, _ => Copy.State.Unknown
+    };
+
+    public static Tone Tone(JobState s) => s switch
+    {
+        JobState.NeedsApproval or JobState.NeedsSession => Tray.Tone.Wait,
+        JobState.Queued or JobState.Running => Tray.Tone.Info,
+        JobState.Succeeded => Tray.Tone.On,
+        JobState.Failed or JobState.Rejected or JobState.OutcomeUnknown => Tray.Tone.Bad,
+        _ => Tray.Tone.Off
+    };
+
+    public static bool Live(JobState s) => s is JobState.NeedsApproval or JobState.NeedsSession or JobState.Queued or JobState.Running;
+
+    public static string FirstLine(string code)
+    {
+        foreach (var line in code.Split('\n'))
+        {
+            var t = line.Trim();
+            if (t.Length > 0) return t.Length > 120 ? t[..120] + "…" : t;
+        }
+        return "";
+    }
+
+    public static string Err(Exception e) => e switch
+    {
+        OperationCanceledException or TimeoutException => Copy.Err.Timeout,
+        FileNotFoundException => Copy.Err.NoPipe,
+        IOException io when io.Message == Names.WrongBroker => string.Format(Copy.Err.WrongBroker, Launch.HostPath(Launch.Backend)),
+        IOException io => io.Message,
+        _ => string.Format(Copy.Err.Generic, e.Message)
+    };
+
+    public static string Err(Response r) => string.IsNullOrWhiteSpace(r.Error) ? Copy.Err.NoResponse : r.Error;
+}

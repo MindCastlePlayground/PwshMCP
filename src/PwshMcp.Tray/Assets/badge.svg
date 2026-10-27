@@ -1,0 +1,14 @@
+<!-- PwshMCP badge mark. Source of truth is Glyphs.cs (same 16-unit geometry); this file is the vector reference for docs/packaging. Authored in-house. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="256" height="256">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3346C8"/>
+      <stop offset="1" stop-color="#243296"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#g)" fill-rule="evenodd" d="M5.7,1.5 H10.3 A2.2,2.2 0 0 1 12.5,3.7 V12.3 A2.2,2.2 0 0 1 10.3,14.5 H5.7 A2.2,2.2 0 0 1 3.5,12.3 V3.7 A2.2,2.2 0 0 1 5.7,1.5 Z M6.75,3.7 H9.25 A0.75,0.75 0 0 1 9.25,5.2 H6.75 A0.75,0.75 0 0 1 6.75,3.7 Z"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="6,8 8.1,9.7 6,11.4"/>
+    <line x1="8.9" y1="11.6" x2="10.4" y2="11.6"/>
+  </g>
+</svg>

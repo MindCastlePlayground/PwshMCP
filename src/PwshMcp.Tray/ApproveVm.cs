@@ -49,6 +49,8 @@ public sealed class ApproveVm : Bindable
     public string Client => grant is null ? "" : string.IsNullOrWhiteSpace(grant.Client) ? Copy.Product : grant.Client;
     public string Head => string.Format(resume ? Copy.Approve.ResumeHead : Copy.Approve.Head, Client);
     public string Reason => string.IsNullOrWhiteSpace(grant?.Label) ? Copy.Detail.NoReason : grant!.Label;
+    public string TaskName => Fmt.Or(grant?.TaskName, Copy.Detail.NoTaskName);
+    public bool HasTask => !string.IsNullOrWhiteSpace(grant?.TaskName);
     public string User => grant?.User ?? "";
     public string Session => grant?.SessionId.ToString() ?? "";
     public string Submitted => grant is null ? "" : Fmt.Stamp(grant.CreatedAt);

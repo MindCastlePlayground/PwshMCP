@@ -25,6 +25,10 @@ artifacts/app/PwshMcp.Tray.exe --show
 
 工具：run、status、output、cancel、grants、request_access、session_reset、session_close、context_set、context_clear、env_info。run 默认普通权限，`privilege=elevated` 请求管理员权限；有 session 时保留 shell 状态，无 session 时每次 fresh。任务立即返回 ID，后续查状态与输出。
 
+0.2.0 起，`run`、`session_reset`、`session_close` 必填 `description`，用于审计动作和目的。首次管理员请求必填 `taskName`（`request_access` 或没有有效/待批授权时的 elevated run）。例如 `run(code="Get-Service", description="列出服务状态，定位后台服务未启动原因", privilege="elevated", taskName="排查后台服务")`。后续命令仍需独立描述。更新后请重新连接 MCP 以刷新工具定义；旧客户端缺字段会收到明确错误。描述和任务名会持久化，请勿包含秘密。
+
+模型名识别和指定 Agent 会话预批准的可行性见 [AGENT-IDENTITY](docs/AGENT-IDENTITY.md)；当前授权仍按客户端归属，任务名不是权限边界。
+
 `context_set(session="dev", env={...})` 保存显式环境覆盖；`run(context="dev", ...)` 在保持每次新进程的同时使用这些覆盖。`run(session="dev", ...)` 则明确保留 shell 变量、函数和工作目录；环境或覆盖变更后用 `session_reset` 重建。每次执行结果带环境快照 ID 和实际执行身份，不输出环境秘密值。
 
 仅元数据持久化，命令正文、环境值和输出不写入状态档案。broker 重启使授权失效，未完成任务标记结果未知，不自动重跑；历史输出不恢复。普通授权不允许升级成 SYSTEM。

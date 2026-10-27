@@ -76,5 +76,15 @@ public static class Fmt
         _ => string.Format(Copy.Err.Generic, e.Message)
     };
 
-    public static string Err(Response r) => string.IsNullOrWhiteSpace(r.Error) ? Copy.Err.NoResponse : r.Error;
+    public static string Err(Response r) => r.Error switch
+    {
+        Codes.DescriptionRequired => Copy.Err.DescriptionRequired,
+        Codes.TaskNameRequired => Copy.Err.TaskNameRequired,
+        var e when string.IsNullOrWhiteSpace(e) => Copy.Err.NoResponse,
+        var e => e
+    };
+
+    /// <summary>Agent-supplied text, or the explicit "old record" fallback. Never derived from code or client name.</summary>
+    public static string Or(string? text, string missing) => string.IsNullOrWhiteSpace(text) ? missing : text.Trim();
+    public static string OneLine(string? text, string missing) => Or(text, missing).ReplaceLineEndings(" ");
 }

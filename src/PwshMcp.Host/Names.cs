@@ -7,5 +7,6 @@ internal static class Names
 }
 internal static class Errors
 {
+    public const string Description="description_required", TaskName="task_name_required";
     public const string Missing="not_found", Forbidden="forbidden", Elevation="requires_user_elevation", Invalid="invalid_request", Conflict="request_id_conflict", Expired="grant_inactive", Offline="worker_offline", Full="capacity_reached";
 }

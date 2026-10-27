@@ -24,7 +24,7 @@ class Acceptance:
 
     @classmethod
     def submit(cls, client, key):
-        return cls.call(op='submit', id=key, client=client, label='桌面验收：仅读取管理员标志和进程号，不修改系统。批准后两条命令应使用不同进程且无需重复 UAC。', run=dict(code=cls.CODE, cwd=str(cls.ROOT), privilege='elevated', timeoutSeconds=20))
+        return cls.call(op='submit', id=key, client=client, taskName='桌面管理员授权验收', label='桌面验收：仅读取管理员标志和进程号，不修改系统。批准后命令应使用不同进程且无需重复 UAC。', run=dict(description='读取当前进程的管理员标志和进程号，验证授权后的执行身份与进程隔离。', code=cls.CODE, cwd=str(cls.ROOT), privilege='elevated', timeoutSeconds=20))
 
     @classmethod
     def prepare(cls):

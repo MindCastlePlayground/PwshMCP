@@ -35,7 +35,10 @@
 
         <StackPanel Visibility="{Binding Shows, Converter={StaticResource {x:Static t:K.Vis}}}">
           <TextBlock Style="{StaticResource {x:Static t:K.Title}}" FontSize="24" Text="{Binding Head}"/>
-          <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,10,0,0" Text="{Binding Reason}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,3" Text="{x:Static t:Copy+Detail.TaskName}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Task}}" Text="{Binding TaskName}" AutomationProperties.Name="{Binding TaskName}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Text="{x:Static t:Copy+Detail.TaskNote}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,14,0,0" Text="{Binding Reason}"/>
           <WrapPanel Margin="0,20,0,0">
             <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Approve.Requester}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}"/></StackPanel>
             <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.User}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding User}"/></StackPanel>
@@ -52,10 +55,11 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <StackPanel Margin="0,0,0,14">
+                    <TextBlock Style="{StaticResource {x:Static t:K.Desc}}" Margin="0,0,0,8" Text="{Binding Desc}" AutomationProperties.Name="{Binding Desc}"/>
                     <TextBlock Style="{StaticResource {x:Static t:K.Label}}">
                       <Run Text="{x:Static t:Copy+Detail.Cwd}"/><Run Text=" "/><Run Text="{Binding Cwd, Mode=OneWay}" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}"/>
                     </TextBlock>
-                    <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" MaxHeight="180" Text="{Binding Code, Mode=OneWay}"/>
+                    <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" MaxHeight="180" Text="{Binding Code, Mode=OneWay}" AutomationProperties.Name="{x:Static t:Copy+Detail.Code}"/>
                     <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="2,6,0,0" TextWrapping="Wrap" Text="{Binding Meta}"/>
                   </StackPanel>
                 </DataTemplate>

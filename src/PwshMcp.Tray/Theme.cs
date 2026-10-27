@@ -14,6 +14,7 @@ public static class K
     public const string UiFont = "pm.uiFont", MonoFont = "pm.monoFont";
     public const string Primary = "pm.btnPrimary", Secondary = "pm.btnSecondary", Danger = "pm.btnDanger", Quiet = "pm.btnQuiet";
     public const string Segment = "pm.segment", Row = "pm.row", Label = "pm.label", Value = "pm.value", Title = "pm.title", Section = "pm.section", Body = "pm.body", CodeBox = "pm.codeBox", Choice = "pm.choice", Pane = "pm.pane", Vis = "pm.vis", Shield = "pm.shield", Mark = "pm.mark";
+    public const string Desc = "pm.desc", Task = "pm.task";
 }
 
 public sealed record Palette(string Ground, string Panel, string Raised, string Line, string Ink, string Muted, string Accent, string AccentInk, string AccentSoft, string Hover, string Press,

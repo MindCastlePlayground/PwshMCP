@@ -9,9 +9,14 @@ namespace PwshMcp.Shared;
 
 public static class Protocol
 {
+#if PWMC_TEST_CHANNEL
+    public const string Pipe = "PwshMcp.Broker.Tests.v1";
+    public const string Product = "PwshMCP.Tests";
+#else
     public const string Pipe = "PwshMcp.Broker.v1";
     public const string Product = "PwshMCP";
-    public const string Version = "0.1.0";
+#endif
+    public const string Version = "0.2.0";
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) } };
 }
 public static class Ops
@@ -23,6 +28,7 @@ public enum AccessState { Pending, Active, Denied, Revoked, Expired }
 public enum Privilege { Normal, Elevated }
 public sealed record RunSpec
 {
+    public string Description {get;init;}="";
     public string Code {get;init;}="";
     public string Cwd {get;init;}="";
     public Privilege Privilege {get;init;}=Privilege.Elevated;
@@ -33,6 +39,7 @@ public sealed record RunSpec
 }
 public sealed record Request
 {
+    public string TaskName {get;init;}="";
     public string Op {get;init;}="";
     public string Id {get;init;}="";
     public string Client {get;init;}="agent";
@@ -45,6 +52,7 @@ public sealed record Request
 }
 public sealed record AccessInfo
 {
+    public string TaskName {get;init;}="";
     public string Id {get;init;}="";
     public string Client {get;init;}="";
     public string Label {get;init;}="";

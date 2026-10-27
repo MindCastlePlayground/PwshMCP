@@ -197,6 +197,26 @@
     <Setter Property="MaxWidth" Value="640"/>
     <Setter Property="HorizontalAlignment" Value="Left"/>
   </Style>
+  <!-- Agent-supplied audit text. Old records without it read as muted fallback copy, never as real content. -->
+  <Style x:Key="{x:Static t:K.Desc}" TargetType="TextBlock" BasedOn="{StaticResource {x:Static t:K.Body}}">
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding HasDesc}" Value="False">
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="{x:Static t:K.Task}" TargetType="TextBlock" BasedOn="{StaticResource {x:Static t:K.Body}}">
+    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding HasTask}" Value="False">
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
   <Style x:Key="{x:Static t:K.Title}" TargetType="TextBlock">
     <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
     <Setter Property="FontSize" Value="22"/>

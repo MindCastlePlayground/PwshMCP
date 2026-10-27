@@ -26,3 +26,4 @@
 - recovery_tests 子代理首条默认沙箱读取再次遇到错误 5；同范围 `require_escalated` 成功。主代理已给出故障背景，但子代理仍先触发默认路径；后续委派明确首条即使用已验证的执行通道。
 - 桌面工具可枚举到已打开的 PwshMCP 窗口，但首次 `get_window_state` 返回 `Computer Use app approval timed out`；未获得截图。需要用户完成工具的应用访问许可后重试，不通过其他截图路径绕过许可。
 - 后续应用访问已可读取控件，但截图先报 `FrameArrived timed out: timed out waiting on channel`，刷新窗口身份并激活后的单次恢复仍报 `window capture timed out: timed out waiting on channel`。点击请求页报 `coordinate input geometry is unavailable`。停止该输入路径；只将控件读取记为通过，视觉和点击验收待人工/捕获工具恢复。
+- 后续审计字段任务首条只读命令仍遇到 `CreateProcessAsUserW failed: 5`；同范围 require_escalated 重跑成功，不重复默认启动路径。

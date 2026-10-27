@@ -62,7 +62,9 @@ public sealed class CmdVm
 {
     public CmdVm(JobInfo j)
     {
-        Code = j.Run.Code; Cwd = j.Run.Cwd;
+        Code = j.Run.Code; Cwd = j.Run.Cwd; Raw = j.Run.Description;
+        HasDesc = !string.IsNullOrWhiteSpace(j.Run.Description);
+        Desc = Fmt.Or(j.Run.Description, Copy.Detail.NoDescription);
         var meta = new List<string> { $"{Copy.Detail.Timeout} {string.Format(Copy.Time.Seconds, j.Run.TimeoutSeconds)}" };
         if (j.Run.Env.Count > 0) meta.Add($"{Copy.Detail.EnvNames}: {string.Join(", ", j.Run.Env.Keys)}");
         if (!string.IsNullOrEmpty(j.Run.Session)) meta.Add($"{Copy.Detail.SessionName}: {j.Run.Session}");
@@ -72,6 +74,11 @@ public sealed class CmdVm
     public string Code { get; }
     public string Cwd { get; }
     public string Meta { get; }
+    /// <summary>The description as sent; used only to detect changes.</summary>
+    public string Raw { get; }
+    public string Desc { get; }
+    public bool HasDesc { get; }
+    public string DescLine => Desc.ReplaceLineEndings(" ");
 }
 
 /// <summary>A grant in any state. Pending ones are requests.</summary>
@@ -102,6 +109,9 @@ public sealed class GrantVm : Bindable
     public string Client => string.IsNullOrWhiteSpace(info.Client) ? Copy.Product : info.Client;
     public string Reason => string.IsNullOrWhiteSpace(info.Label) ? Copy.Detail.NoReason : info.Label;
     public string ReasonLine => string.IsNullOrWhiteSpace(info.Label) ? Copy.Detail.NoReason : info.Label.ReplaceLineEndings(" ");
+    public string TaskName => Fmt.Or(info.TaskName, Copy.Detail.NoTaskName);
+    public string TaskLine => Fmt.OneLine(info.TaskName, Copy.Detail.NoTaskName);
+    public bool HasTask => !string.IsNullOrWhiteSpace(info.TaskName);
     public string User => info.User;
     public string Session => info.SessionId.ToString();
     public string Submitted => Fmt.Stamp(info.CreatedAt);
@@ -114,7 +124,7 @@ public sealed class GrantVm : Bindable
     public bool IsEnded => !IsPending && !IsActive;
     public string Head => string.Format(IsPending ? Copy.Detail.From : Copy.Detail.Grant, Client);
     public string Requested => Fmt.Full(info.CreatedAt);
-    public string Spoken => string.Format(Copy.Tabs.Row, Client, StateName, RowSub);
+    public string Spoken => string.Format(Copy.Tabs.GrantRow, Client, StateName, TaskLine, RowSub);
     public string Ends => info.ExpiresAt is { } e ? $"{Fmt.Full(e)} · {Fmt.Left(e)}" : Copy.Detail.SignOut;
     public string RowSub => IsActive ? (info.ExpiresAt is { } e ? Fmt.Left(e) : Copy.Detail.SignOut) : IsPending ? ReasonLine : Fmt.Clock(info.ExpiresAt ?? info.CreatedAt);
     public bool WorkerOn => info.HeartbeatAt is { } h && DateTimeOffset.UtcNow - h <= Timing.Heartbeat;
@@ -139,7 +149,7 @@ public sealed class GrantVm : Bindable
             var exact = jobs.Where(j => j.State == JobState.NeedsApproval && j.GrantId == a.Id).ToList();
             LinkedExact = exact.Count > 0 || !jobs.Any(j => j.State == JobState.NeedsApproval && j.GrantId is null);
             var list = LinkedExact ? exact : jobs.Where(j => j.State == JobState.NeedsApproval && j.GrantId is null && j.Client == a.Client && j.OwnerSid == a.Sid && j.SessionId == a.SessionId).ToList();
-            if (list.Count != Waiting.Count || list.Select(j => j.Run.Code).Where((c, i) => c != Waiting[i].Code).Any())
+            if (list.Count != Waiting.Count || list.Where((j, i) => j.Run.Code != Waiting[i].Code || j.Run.Description != Waiting[i].Raw).Any())
             {
                 Waiting.Clear();
                 foreach (var j in list.OrderBy(j => j.CreatedAt)) Waiting.Add(new CmdVm(j));
@@ -166,8 +176,9 @@ public sealed class JobVm : Bindable
     public Confirm Cancel { get; }
     public string Client => string.IsNullOrWhiteSpace(job.Client) ? Copy.Product : job.Client;
     public string Head => string.Format(Copy.Detail.Task, Client);
-    public string Line => Fmt.FirstLine(job.Run.Code);
-    public string Spoken => string.Format(Copy.Tabs.Row, Client, StateName, Line);
+    public string Line => Cmd.DescLine;
+    public bool HasDesc => Cmd.HasDesc;
+    public string Spoken => string.Format(Copy.Tabs.TaskRow, Line, StateName, Client);
     public string Age => Fmt.Ago(job.CreatedAt);
     public string Submitted => Fmt.Stamp(job.CreatedAt);
     public string StateName => Fmt.Name(job.State);
@@ -189,7 +200,7 @@ public sealed class JobVm : Bindable
     public void Say(string text, bool error) { NoticeBad = error; Notice = text; }
     public void Update(JobInfo j)
     {
-        var codeChanged = j.Run.Code != job.Run.Code;
+        var codeChanged = j.Run.Code != job.Run.Code || j.Run.Description != job.Run.Description;
         job = j;
         if (codeChanged) Cmd = new CmdVm(j);
         Raise(string.Empty);

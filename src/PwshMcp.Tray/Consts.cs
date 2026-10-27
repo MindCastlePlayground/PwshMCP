@@ -73,6 +73,10 @@ public static class Copy
         public const string Requests = "请求", Access = "授权", Tasks = "任务", Ended = "已结束";
         /// <summary>Screen-reader name of a list row: primary text, state, secondary text.</summary>
         public const string Row = "{0}，{1}，{2}";
+        /// <summary>Grant row: client, state, task name, secondary text.</summary>
+        public const string GrantRow = "{0}，{1}，任务名：{2}，{3}";
+        /// <summary>Task row: description, state, client.</summary>
+        public const string TaskRow = "{0}，{1}，来自 {2}";
     }
 
     public static class State
@@ -112,6 +116,10 @@ public static class Copy
         public const string NoOutput = "此任务没有记录输出。", OutputPending = "任务完成后可查看输出。";
         public const string OutputWarn = "输出可能包含机密信息，只在你要求时显示。";
         public const string ErrorStream = "错误";
+        // Task name and description are supplied by the agent; older records predate them and are never back-filled from code or client.
+        public const string TaskName = "任务名", NoTaskName = "旧记录未提供任务名";
+        public const string TaskNote = "任务名是智能体首次申请时说明的背景。授权覆盖此客户端之后发送的所有命令，不限于这个任务。";
+        public const string Description = "指令描述", NoDescription = "旧记录未提供指令描述", Code = "代码";
     }
 
     /// <summary>Action names used in "{0}失败" messages.</summary>
@@ -172,5 +180,13 @@ public static class Copy
         public const string Generic = "意外错误（{0}）", NoResponse = "没有响应";
         public const string Timeout = "代理未及时响应", NoPipe = "代理未运行";
         public const string WrongBroker = "响应的不是预期的代理程序 {0}。请停止另一个代理，或用 --backend-dir 指向它所在的文件夹";
+        public const string DescriptionRequired = "代理拒绝了缺少指令描述的命令。需要智能体为每条命令填写指令描述后重新发送，托盘无法代填";
+        public const string TaskNameRequired = "代理拒绝了缺少任务名的首次管理员申请。需要智能体填写任务名后重新申请，托盘无法代填";
     }
+}
+
+/// <summary>Broker error codes the tray translates (mirrors PwshMcp.Host Errors).</summary>
+public static class Codes
+{
+    public const string DescriptionRequired = "description_required", TaskNameRequired = "task_name_required";
 }

@@ -101,3 +101,14 @@ Evidence came from the main agent's accessibility tree; screenshots and clicks w
 1. Add `src/PwshMcp.Tray` to the solution and the publish layout, side by side with `PwshMcp.Host.exe` (default backend dir = tray exe dir).
 2. ~~Before packaging, run `PwshMcp.Tray.exe --export-icons src/PwshMcp.Tray/Assets` once and rebuild.~~ Done by the main agent; `Assets/app.ico` exists.
 3. During real-UAC validation, check that an approval made while new commands arrive shows them (the scope text already covers future commands).
+
+## 0.2.0 · Audit fields (task name, command description)
+Uses only the Shared fields `AccessInfo.TaskName` and `RunSpec.Description`. No new non-UI fields were needed, and Shared, Host and tests are unchanged.
+- **Task name:** the request list row's second line shows the task name instead of the reason. Access rows show client, task name, then remaining time or end time. Request, access and approval details show a "任务名" block under the title, followed by `Copy.Detail.TaskNote`. The note says the task name is the background the agent gave when it first applied, and that the grant covers every later command from the client. Nothing states or implies per-task isolation.
+- **Description:** in the task list the primary line is the description (UI font). The client and age stay on the second line. Task detail shows "指令描述" under the title, and the code moves to a "代码" section (`pm.code` template). Waiting commands in request detail and in the approval preview show the description first, with cwd, code and meta below it.
+- **Old records:** an empty value shows `旧记录未提供任务名` / `旧记录未提供指令描述` in muted text (`K.Task` / `K.Desc` styles with DataTriggers on `HasTask` / `HasDesc`). The fallback is never derived from the code, `Label` or the client name (`Fmt.Or`).
+- **Screen reader:** grant rows read `client，state，任务名：…，secondary`. Task rows read `description，state，来自 client`. The description and task-name TextBlocks have their own names, and code boxes are named "代码".
+- **Errors:** `Fmt.Err(Response)` maps `description_required` and `task_name_required` (`Codes` in Consts.cs) to copy saying the agent must fill the field and resend, and that the tray cannot fill it.
+- Version: `PwshMcp.Tray.csproj` is now 0.2.0, matching `Protocol.Version`. All new copy is in `Consts.cs`.
+- Build: `dotnet build src/PwshMcp.Tray/PwshMcp.Tray.csproj --nologo -v quiet` → `已成功生成。0 个警告 0 个错误`.
+- Not verified: rendering, wrapping of long task names or descriptions (up to 200 / 1000 characters) in rows and details, and Narrator output. No window or UAC prompt was started.

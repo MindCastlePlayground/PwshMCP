@@ -21,13 +21,20 @@
     </Style>
 
     <!-- Commands waiting / command block -->
-    <DataTemplate x:Key="pm.cmd" DataType="{x:Type t:CmdVm}">
-      <StackPanel Margin="0,0,0,16">
+    <DataTemplate x:Key="pm.code" DataType="{x:Type t:CmdVm}">
+      <StackPanel>
         <TextBlock Style="{StaticResource {x:Static t:K.Label}}">
           <Run Text="{x:Static t:Copy+Detail.Cwd}"/><Run Text=" "/><Run Text="{Binding Cwd, Mode=OneWay}" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}"/>
         </TextBlock>
-        <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" Text="{Binding Code, Mode=OneWay}"/>
+        <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" Text="{Binding Code, Mode=OneWay}" AutomationProperties.Name="{x:Static t:Copy+Detail.Code}"/>
         <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="2,6,0,0" Text="{Binding Meta}" TextWrapping="Wrap"/>
+      </StackPanel>
+    </DataTemplate>
+    <!-- Description leads; code stays underneath as the detail -->
+    <DataTemplate x:Key="pm.cmd" DataType="{x:Type t:CmdVm}">
+      <StackPanel Margin="0,0,0,16">
+        <TextBlock Style="{StaticResource {x:Static t:K.Desc}}" Margin="0,0,0,8" Text="{Binding Desc}" AutomationProperties.Name="{Binding Desc}"/>
+        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource pm.code}"/>
       </StackPanel>
     </DataTemplate>
 
@@ -42,6 +49,9 @@
               <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="10,0,0,0" VerticalAlignment="Center" Text="{Binding Age}"/>
             </StackPanel>
             <TextBlock Style="{StaticResource {x:Static t:K.Title}}" Text="{Binding Head}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,3" Text="{x:Static t:Copy+Detail.TaskName}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Task}}" Text="{Binding TaskName}" AutomationProperties.Name="{Binding TaskName}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Text="{x:Static t:Copy+Detail.TaskNote}"/>
 
             <!-- Request -->
             <StackPanel Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}">
@@ -139,11 +149,13 @@
               <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="10,0,0,0" VerticalAlignment="Center" Text="{Binding Submitted}"/>
             </StackPanel>
             <TextBlock Style="{StaticResource {x:Static t:K.Title}}" Text="{Binding Head}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,3" Text="{x:Static t:Copy+Detail.Description}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Desc}}" DataContext="{Binding Cmd}" Text="{Binding Desc}" AutomationProperties.Name="{Binding Desc}"/>
             <WrapPanel Margin="0,20,0,0">
               <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Privilege}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Privilege}"/></StackPanel>
             </WrapPanel>
-            <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,8,0,10" Text="{x:Static t:Copy+Detail.Command}"/>
-            <ContentPresenter Content="{Binding Cmd}" ContentTemplate="{StaticResource pm.cmd}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,8,0,10" Text="{x:Static t:Copy+Detail.Code}"/>
+            <ContentPresenter Margin="0,0,0,16" Content="{Binding Cmd}" ContentTemplate="{StaticResource pm.code}"/>
 
             <StackPanel Visibility="{Binding HasResult, Converter={StaticResource {x:Static t:K.Vis}}}">
               <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,10,0,10" Text="{x:Static t:Copy+Detail.Result}"/>
@@ -246,7 +258,7 @@
                            Visibility="{Binding IsNew, Converter={StaticResource {x:Static t:K.Vis}}}"/>
                   <StackPanel Grid.Column="1">
                     <TextBlock FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding Client}"/>
-                    <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding ReasonLine}"/>
+                    <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding TaskLine}"/>
                   </StackPanel>
                   <TextBlock Grid.Column="2" FontSize="12" Margin="10,2,0,0" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding Age}"/>
                 </Grid>
@@ -266,7 +278,16 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel>
                       <TextBlock FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding Client}"/>
-                      <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding RowSub}"/>
+                      <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Text="{Binding TaskLine}">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding HasTask}" Value="False"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/></DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                      <TextBlock FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding RowSub}"/>
                     </StackPanel>
                     <t:Chip Grid.Column="1" Margin="10,0,0,0" Text="{Binding StateName}" Tone="{Binding Tone}"/>
                   </Grid>
@@ -283,7 +304,15 @@
                 <Grid>
                   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <StackPanel>
-                    <TextBlock FontSize="12.5" TextTrimming="CharacterEllipsis" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}" Text="{Binding Line}"/>
+                    <TextBlock FontSize="13" TextTrimming="CharacterEllipsis" Text="{Binding Line}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasDesc}" Value="False"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/></DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
                     <TextBlock FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}">
                       <Run Text="{Binding Client, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding Age, Mode=OneWay}"/>
                     </TextBlock>

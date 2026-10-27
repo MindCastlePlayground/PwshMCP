@@ -8,7 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon Condition="Exists('Assets\app.ico')">Assets\app.ico</ApplicationIcon>
     <Product>PwshMCP</Product>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <!-- WPF reads PerMonitorV2 from the manifest; the WinForms-only API the analyzer suggests doesn't apply to WPF windows. -->
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
   </PropertyGroup>

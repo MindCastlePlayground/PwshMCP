@@ -23,7 +23,7 @@ internal sealed class Broker
 
     public async Task RunAsync(CancellationToken ct)
     {
-        using var singleton=new Mutex(false,@"Global\PwshMcp.Broker.v1");
+        using var singleton=new Mutex(false,@"Global\"+Protocol.Pipe);
         if(!singleton.WaitOne(0)) return;
         Restore();
         // Mutex ownership is thread-affine; process lifetime owns the mutex, no async ReleaseMutex.
@@ -80,11 +80,13 @@ internal sealed class Broker
     }
     private Response Dispatch(Request r,Peer p)
     {
-        if(r.Client.Length>100 || r.Label.Length>500 || r.Id.Length>200)return Fail(Errors.Invalid);
+        if(r.Client.Length>100 || r.Label.Length>500 || r.Id.Length>200 || r.TaskName is null || r.TaskName.Length>200)return Fail(Errors.Invalid);
         switch(r.Op)
         {
             case Ops.Snapshot:return new(){Snapshot=new(){ElevatedBroker=elevated,Grants=grants.Values.Where(g=>Owned(g,p)).ToList(),Jobs=jobs.Values.Where(j=>Owned(j,p)).OrderByDescending(j=>j.CreatedAt).Take(100).Select(SafeJob).ToList()}};
-            case Ops.RequestAccess:return new(){Grant=RequestGrant(r.Client,r.Label,p)};
+            case Ops.RequestAccess:
+                if(string.IsNullOrWhiteSpace(r.TaskName))return Fail(Errors.TaskName);
+                return new(){Grant=RequestGrant(r.Client,r.Label,r.TaskName,p)};
             case Ops.Submit:return Submit(r,p);
             case Ops.Approve:return Approve(r,p);
             case Ops.Deny:case Ops.Revoke:
@@ -106,23 +108,30 @@ internal sealed class Broker
     private Response Submit(Request r,Peer p)
     {
         if(r.Run is null||string.IsNullOrWhiteSpace(r.Id)||r.Run.Code.Length>Names.MaxCode||!Path.IsPathFullyQualified(r.Run.Cwd)||!Directory.Exists(r.Run.Cwd)||r.Run.TimeoutSeconds<1||r.Run.TimeoutSeconds>86400)return Fail(Errors.Invalid);
+        if(string.IsNullOrWhiteSpace(r.Run.Description))return Fail(Errors.Description);
+        if(r.Run.Description.Length>1000)return Fail(Errors.Invalid);
         var key=$"{p.Sid}|{p.Session}|{r.Client}|{r.Id}";
         var hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(r.Run,Protocol.Json))));
         if(fingerprints.TryGetValue(key,out var old))return old==hash?new(){Job=SafeJob(jobs.Values.Single(j=>j.Id==Ids(key)))}:Fail(Errors.Conflict);
         if(jobs.Count>=Names.MaxJobs)return Fail(Errors.Full);
         var active=grants.Values.FirstOrDefault(g=>Owned(g,p)&&g.Client==r.Client&&g.State==AccessState.Active);
         AccessInfo? pending=null;
-        if(r.Run.Privilege==Privilege.Elevated&&active is null)pending=RequestGrant(r.Client,r.Label,p);
+        if(r.Run.Privilege==Privilege.Elevated&&active is null)
+        {
+            pending=grants.Values.FirstOrDefault(g=>Owned(g,p)&&g.Client==r.Client&&g.State==AccessState.Pending);
+            if(pending is null&&string.IsNullOrWhiteSpace(r.TaskName))return Fail(Errors.TaskName);
+            pending??=RequestGrant(r.Client,r.Label,r.TaskName,p);
+        }
         var job=new JobInfo{Id=Ids(key),Client=r.Client,OwnerSid=p.Sid,SessionId=p.Session,Run=r.Run,GrantId=r.Run.Privilege==Privilege.Elevated?(active??pending)?.Id:null,State=r.Run.Privilege==Privilege.Normal?JobState.Queued:active is null?JobState.NeedsApproval:JobState.Queued};
         jobs[job.Id]=job;fingerprints[key]=hash;
         return new(){Id=job.Id,Job=SafeJob(job),Grant=pending??active};
     }
-    private AccessInfo RequestGrant(string client,string label,Peer p)
+    private AccessInfo RequestGrant(string client,string label,string taskName,Peer p)
     {
         var found=grants.Values.FirstOrDefault(g=>Owned(g,p)&&g.Client==client&&g.State is AccessState.Pending or AccessState.Active);
         if(found is not null)return found;
         if(grants.Count>=Names.MaxJobs)throw new InvalidOperationException(Errors.Full);
-        var g=new AccessInfo{Id=Guid.NewGuid().ToString("N"),Client=client,Label=label,User=p.User,Sid=p.Sid,SessionId=p.Session,State=AccessState.Pending};
+        var g=new AccessInfo{Id=Guid.NewGuid().ToString("N"),Client=client,Label=label,TaskName=taskName.Trim(),User=p.User,Sid=p.Sid,SessionId=p.Session,State=AccessState.Pending};
         grants[g.Id]=g;return g;
     }
     private Response Approve(Request r,Peer p)

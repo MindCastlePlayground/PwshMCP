@@ -11,7 +11,7 @@ public sealed class TrayHost : IDisposable
     const int WmSettingChange = 0x001A, WmDpiChanged = 0x02E0, WmDisplayChange = 0x007E;
     readonly Forms.NotifyIcon icon = new();
     readonly Forms.ContextMenuStrip menu = new();
-    readonly Forms.ToolStripMenuItem status, open, review, revoke, exit;
+    readonly Forms.ToolStripMenuItem status, open, review, revoke, exit, lang, zh, en;
     readonly Dictionary<(Glyph, bool, bool), System.Drawing.Icon> cache = [];
     readonly HwndSource sink;
     readonly uint taskbarCreated;
@@ -30,7 +30,12 @@ public sealed class TrayHost : IDisposable
         review = new(string.Format(Copy.Tray.Review, 0), null, (_, _) => show(Tab.Requests)) { Visible = false };
         revoke = new(Copy.Tray.RevokeAll, null, async (_, _) => await RevokeAll()) { Enabled = false };
         exit = new(Copy.Tray.Exit, null, (_, _) => quit());
-        menu.Items.AddRange([status, new Forms.ToolStripSeparator(), open, review, new Forms.ToolStripSeparator(), revoke, new Forms.ToolStripSeparator(), exit]);
+        // Each language is named in itself so it can be found from the other one.
+        zh = new(Copy.Lang.Zh, null, (_, _) => MainVm.Pick(Lang.Zh));
+        en = new(Copy.Lang.En, null, (_, _) => MainVm.Pick(Lang.En));
+        lang = new(Copy.Tray.Language);
+        lang.DropDownItems.AddRange([zh, en]);
+        menu.Items.AddRange([status, new Forms.ToolStripSeparator(), open, review, new Forms.ToolStripSeparator(), revoke, lang, new Forms.ToolStripSeparator(), exit]);
         icon.ContextMenuStrip = menu;
         icon.Text = Copy.Tray.Offline;
         icon.DoubleClick += (_, _) => show(null);
@@ -76,6 +81,14 @@ public sealed class TrayHost : IDisposable
         review.Text = string.Format(Copy.Tray.Review, vm.PendingCount);
         review.Visible = pending;
         revoke.Enabled = s.Conn == Conn.Online && vm.ActiveCount > 0;
+        zh.Checked = L.Current == Lang.Zh; en.Checked = L.Current == Lang.En;
+    }
+
+    /// <summary>Re-reads the fixed menu labels after a language switch. The icon, broker and grants are left alone.</summary>
+    public void Relabel()
+    {
+        open.Text = Copy.Tray.Open; revoke.Text = Copy.Tray.RevokeAll; exit.Text = Copy.Tray.Exit; lang.Text = Copy.Tray.Language;
+        Render();
     }
 
     string Tip(Glyph g, bool pending)

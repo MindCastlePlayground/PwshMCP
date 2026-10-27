@@ -6,12 +6,6 @@
         WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True" ShowInTaskbar="True"
         Background="{DynamicResource {x:Static t:K.Panel}}" FontFamily="{DynamicResource {x:Static t:K.UiFont}}"
         Foreground="{DynamicResource {x:Static t:K.Ink}}">
-  <Window.Resources>
-    <Style x:Key="pm.fact" TargetType="StackPanel">
-      <Setter Property="Margin" Value="0,0,32,12"/>
-      <Setter Property="MinWidth" Value="140"/>
-    </Style>
-  </Window.Resources>
   <Grid>
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
@@ -40,11 +34,17 @@
           <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Text="{x:Static t:Copy+Detail.TaskNote}"/>
           <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,14,0,0" Text="{Binding Reason}"/>
           <WrapPanel Margin="0,20,0,0">
-            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Approve.Requester}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}"/></StackPanel>
-            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.User}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding User}"/></StackPanel>
-            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Session}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Session}"/></StackPanel>
-            <StackPanel Style="{StaticResource pm.fact}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>
+            <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Approve.Requester}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
+            <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>
           </WrapPanel>
+          <!-- The real permission scope: the authorization key, user and session are never hidden behind the readable name. -->
+          <Border Style="{StaticResource {x:Static t:K.Scope}}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,0,0,10" FontWeight="SemiBold" Foreground="{DynamicResource {x:Static t:K.Ink}}" Text="{x:Static t:Copy+Who.Scope}"/>
+              <ItemsControl ItemsSource="{Binding Scope}" ItemTemplate="{StaticResource {x:Static t:K.Facts}}" Grid.IsSharedSizeScope="True" Focusable="False"/>
+              <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,6" TextWrapping="Wrap" Text="{x:Static t:Copy+Who.ScopeNote}"/>
+            </StackPanel>
+          </Border>
 
           <StackPanel Visibility="{Binding IsApprove, Converter={StaticResource {x:Static t:K.Vis}}}">
             <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,14,0,8" Text="{x:Static t:Copy+Approve.AllowsHead}"/>
@@ -56,10 +56,10 @@
                 <DataTemplate>
                   <StackPanel Margin="0,0,0,14">
                     <TextBlock Style="{StaticResource {x:Static t:K.Desc}}" Margin="0,0,0,8" Text="{Binding Desc}" AutomationProperties.Name="{Binding Desc}"/>
-                    <TextBlock Style="{StaticResource {x:Static t:K.Label}}">
-                      <Run Text="{x:Static t:Copy+Detail.Cwd}"/><Run Text=" "/><Run Text="{Binding Cwd, Mode=OneWay}" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}"/>
+                    <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,0,0,6" TextWrapping="Wrap">
+                      <Run Text="{x:Static t:Copy+Detail.Cwd}"/><Run Text="  "/><Run Text="{Binding Cwd, Mode=OneWay}" FontFamily="{DynamicResource {x:Static t:K.MonoFont}}"/>
                     </TextBlock>
-                    <TextBox Style="{StaticResource {x:Static t:K.CodeBox}}" MaxHeight="180" Text="{Binding Code, Mode=OneWay}" AutomationProperties.Name="{x:Static t:Copy+Detail.Code}"/>
+                    <t:CodeView Code="{Binding Code, Mode=OneWay}" MaxBody="180"/>
                     <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="2,6,0,0" TextWrapping="Wrap" Text="{Binding Meta}"/>
                   </StackPanel>
                 </DataTemplate>
@@ -78,6 +78,13 @@
                     Fill="{DynamicResource {x:Static t:K.Accent}}" Track="{DynamicResource {x:Static t:K.Accent}}" Tick="{DynamicResource {x:Static t:K.Ink}}"/>
             <TextBlock Style="{StaticResource {x:Static t:K.Body}}" FontSize="13" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding EndText}"/>
           </StackPanel>
+
+          <Expander Style="{StaticResource {x:Static t:K.Diag}}" Header="{x:Static t:Copy+Diag.Head}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,0,0,10" TextWrapping="Wrap" Text="{x:Static t:Copy+Diag.Note}"/>
+              <ItemsControl ItemsSource="{Binding Diag}" ItemTemplate="{StaticResource {x:Static t:K.Facts}}" Grid.IsSharedSizeScope="True" Focusable="False"/>
+            </StackPanel>
+          </Expander>
         </StackPanel>
       </StackPanel>
     </ScrollViewer>

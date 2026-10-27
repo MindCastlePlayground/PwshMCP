@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     public MainWindow(MainVm vm)
     {
         this.vm = vm;
+        Language = L.Xml;
         InitializeComponent();
         DataContext = vm;
         vm.PropertyChanged += OnVm;
@@ -58,10 +59,29 @@ public partial class MainWindow : Window
         });
     }
 
+    bool retired;
+
+    /// <summary>Adopts the placement of the window this one replaces after a language switch.</summary>
+    public void Take(MainWindow old)
+    {
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        var r = old.WindowState == WindowState.Normal ? new Rect(old.Left, old.Top, old.Width, old.Height) : old.RestoreBounds;
+        if (!r.IsEmpty) { Left = r.Left; Top = r.Top; Width = r.Width; Height = r.Height; }
+        if (old.WindowState == WindowState.Maximized) WindowState = WindowState.Maximized;
+    }
+
+    /// <summary>Closes for real (replaced, not hidden). The view model lives on in the new window.</summary>
+    public void Retire()
+    {
+        retired = true;
+        vm.PropertyChanged -= OnVm;
+        Close();
+    }
+
     protected override void OnClosing(CancelEventArgs e)
     {
         // Closing the window keeps the tray running; Exit lives in the tray menu.
-        if (!App.Quitting) { e.Cancel = true; Hide(); }
+        if (!App.Quitting && !retired) { e.Cancel = true; Hide(); }
         base.OnClosing(e);
     }
 }

@@ -9,6 +9,7 @@ public partial class ApproveWindow : Window
     public ApproveWindow(ApproveVm vm)
     {
         this.vm = vm;
+        Language = L.Xml;
         InitializeComponent();
         DataContext = vm;
         vm.Finished += Close;

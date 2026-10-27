@@ -46,6 +46,8 @@ public static class Timing
 public static class Copy
 {
     public const string Product = "PwshMCP";
+    /// <summary>Tray build version (major.minor.patch) from the assembly, shown beside the product name.</summary>
+    public static string Version => typeof(Copy).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "";
     static string T(string zh, string en) => L.T(zh, en);
 
     public static class Tray
@@ -242,6 +244,8 @@ public static class Copy
         public static string Label => T("界面语言", "Interface language");
         public static string Zh => T("中文", "中文");
         public static string En => T("English", "English");
+        public static string Hint => T("切换界面语言。代理、任务和授权都保持不变，也不会弹出 Windows 提示。",
+            "Switch the interface language. The broker, tasks and access stay as they are, and no Windows prompt appears.");
     }
 
     public static class Code
@@ -343,6 +347,15 @@ public static class Copy
         public static string TaskNameRequired => T("代理拒绝了缺少任务名的首次管理员申请。需要智能体填写任务名后重新申请，托盘无法代填",
             "The broker refused a first admin request without a task name. The agent must name the task and ask again; the tray can't fill it in");
     }
+}
+
+/// <summary>Offline self-test report vocabulary (English only: it is a machine-checked log, not interface copy).</summary>
+public static class Report
+{
+    public const string Pass = "PASS", Fail = "FAIL", Info = "INFO", Line = "{0} {1}: {2}", Sum = "{0} checks, {1} failed";
+    public const string Keys = "copy", Holes = "placeholders", Access = "access-key", Lex = "lexer", Wrap = "code-wrap", Fidelity = "copy-fidelity";
+    public const string Layout = "layout", Clip = "clipped", Render = "render", Same = "same-in-both";
+    public const string Main = "main", Approve = "approve", Name = "{0}-{1}-{2}{3}";
 }
 
 /// <summary>Broker error codes the tray translates (mirrors PwshMcp.Host Errors).</summary>

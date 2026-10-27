@@ -6,14 +6,16 @@ using PwshMcp.Shared;
 
 namespace PwshMcp.Tray;
 
-public enum Mode { Tray, Approve, Resume, Export }
+public enum Mode { Tray, Approve, Resume, Export, SelfTest, Render }
 
-public sealed record Args(Mode Mode, bool Show, string? Id, string? BackendDir, string? Dir)
+public sealed record Args(Mode Mode, bool Show, string? Id, string? BackendDir, string? Dir, Lang? Lang)
 {
     public static Args Parse(string[] a)
     {
         string? Next(int i) => i + 1 < a.Length ? a[i + 1] : null;
-        Mode mode = Mode.Tray; bool show = false; string? id = null, backend = null, dir = null;
+        // Optional value: the next token unless it is another flag.
+        string? Opt(ref int i) => Next(i) is { } v && !v.StartsWith(Cli.Flag) ? a[++i] : null;
+        Mode mode = Mode.Tray; bool show = false; string? id = null, backend = null, dir = null; Lang? lang = null;
         for (int i = 0; i < a.Length; i++)
         {
             switch (a[i].ToLowerInvariant())
@@ -23,9 +25,12 @@ public sealed record Args(Mode Mode, bool Show, string? Id, string? BackendDir, 
                 case Cli.Resume: mode = Mode.Resume; id = Next(i++); break;
                 case Cli.BackendDir: backend = Next(i++); break;
                 case Cli.ExportIcons: mode = Mode.Export; dir = Next(i++); break;
+                case Cli.Language: lang = L.Parse(Next(i++)); break;
+                case Cli.SelfTest: mode = Mode.SelfTest; dir = Opt(ref i); break;
+                case Cli.RenderCheck: mode = Mode.Render; dir = Opt(ref i); break;
             }
         }
-        return new(mode, show, id, backend, dir);
+        return new(mode, show, id, backend, dir, lang);
     }
 }
 
@@ -50,6 +55,8 @@ public static class Launch
     {
         var psi = new ProcessStartInfo(Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, Names.TrayExe)) { UseShellExecute = true, Verb = Cli.RunAs };
         psi.ArgumentList.Add(flag); psi.ArgumentList.Add(id);
+        // The elevated window may run as another admin account whose saved language differs; keep the one the user is reading.
+        psi.ArgumentList.Add(Cli.Language); psi.ArgumentList.Add(L.Tag(L.Current));
         if (!string.IsNullOrWhiteSpace(backend)) { psi.ArgumentList.Add(Cli.BackendDir); psi.ArgumentList.Add(HostDir(backend)); }
         try { using var p = Process.Start(psi); return (Uac.Started, ""); }
         catch (Win32Exception e) when (e.NativeErrorCode == ErrorCancelled) { return (Uac.Cancelled, ""); }

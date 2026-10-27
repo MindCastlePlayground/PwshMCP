@@ -31,10 +31,14 @@ public sealed class App : Application
             Glyphs.Export(a.Dir ?? Path.Combine(AppContext.BaseDirectory, Names.AssetDir));
             return 0;
         }
+        // --language wins for this run only (the approval window inherits it); otherwise the saved choice, then the OS language.
+        L.Current = a.Lang ?? Prefs.Load() ?? L.System;
         System.Windows.Forms.Application.EnableVisualStyles();
         var app = new App(a);
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(Names.Styles, UriKind.Absolute) });
         Theme.Apply(app.Resources);
+        // Offline checks: no tray, no broker, no UAC, no window shown. Exit code is the number of failures.
+        if (a.Mode is Mode.SelfTest or Mode.Render) return Check.Run(a.Dir, a.Mode == Mode.Render);
         // Window/taskbar icon drawn from the same vector source as the tray glyph.
         using (var ico = new MemoryStream(Glyphs.AppIco()))
             app.Icon = BitmapFrame.Create(ico, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
@@ -77,8 +81,28 @@ public sealed class App : Application
         monitor = new Monitor(args.BackendDir, s => Dispatcher.BeginInvoke(DispatcherPriority.Background, () => Publish(s)));
         vm = new MainVm(monitor, args.BackendDir);
         tray = new TrayHost(vm, Show, Quit);
+        L.Changed += () => Dispatcher.BeginInvoke(Relang);
         monitor.Start();
         if (args.Show) Show(null);
+    }
+
+    /// <summary>
+    /// Applies a user-picked language. Display only: the broker, the monitor and every grant are untouched and no UAC prompt appears.
+    /// An open window is rebuilt in place (same bounds, tab and selection) because XAML labels are read once at load.
+    /// </summary>
+    void Relang()
+    {
+        if (vm is null || Quitting) return;
+        Theme.Fonts(Resources);
+        vm.Relabel();
+        tray?.Relabel();
+        if (window is null) return;
+        var old = window;
+        var open = old.IsVisible && old.WindowState != WindowState.Minimized;
+        window = new MainWindow(vm);
+        window.Take(old);
+        old.Retire();
+        if (open) window.Present(vm.Tab);
     }
 
     void Publish(Status s)

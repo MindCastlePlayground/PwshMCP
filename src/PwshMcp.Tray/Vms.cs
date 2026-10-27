@@ -37,47 +37,54 @@ public sealed class Relay : ICommand
 /// <summary>Two-step inline confirmation instead of a modal: first click arms for a few seconds, second click acts.</summary>
 public sealed class Confirm : Bindable
 {
-    readonly string label, armed; readonly Func<Task> act; readonly DispatcherTimer timer;
-    string text; bool isArmed, busy;
-    public Confirm(string label, string armed, Func<Task> act, Func<bool>? can = null)
+    // Labels are read on demand so a language switch relabels them without rebuilding the action.
+    readonly Func<string> label, armed; readonly Func<Task> act; readonly DispatcherTimer timer;
+    bool isArmed, busy;
+    public Confirm(Func<string> label, Func<string> armed, Func<Task> act, Func<bool>? can = null)
     {
-        this.label = label; this.armed = armed; this.act = act; text = label;
+        this.label = label; this.armed = armed; this.act = act;
         timer = new DispatcherTimer { Interval = Timing.Confirm };
         timer.Tick += (_, _) => Disarm();
         Click = new Relay(Press, () => !busy && (can?.Invoke() ?? true));
     }
-    public string Text { get => text; private set => Set(ref text, value); }
-    public string? Tag => isArmed ? "armed" : null;
+    public string Text => isArmed ? armed() : label();
+    public string? Tag => isArmed ? Names.Armed : null;
     public ICommand Click { get; }
     async Task Press()
     {
-        if (!isArmed) { isArmed = true; Text = armed; Raise(nameof(Tag)); timer.Start(); return; }
+        if (!isArmed) { isArmed = true; Raise(string.Empty); timer.Start(); return; }
         Disarm(); busy = true;
         try { await act(); } finally { busy = false; }
     }
-    void Disarm() { timer.Stop(); isArmed = false; Text = label; Raise(nameof(Tag)); }
+    void Disarm() { timer.Stop(); isArmed = false; Raise(string.Empty); }
+    public void Relabel() => Raise(string.Empty);
 }
 
+/// <summary>One labelled value in a diagnostics or scope block. Values are shown verbatim and selectable.</summary>
+public sealed record Fact(string Label, string Value);
+
+/// <summary>A command as sent. Display text is computed on read so it always follows the current language.</summary>
 public sealed class CmdVm
 {
-    public CmdVm(JobInfo j)
+    readonly RunSpec run;
+    public CmdVm(JobInfo j) { run = j.Run; }
+    public string Code => run.Code;
+    public string Cwd => run.Cwd;
+    public string Meta
     {
-        Code = j.Run.Code; Cwd = j.Run.Cwd; Raw = j.Run.Description;
-        HasDesc = !string.IsNullOrWhiteSpace(j.Run.Description);
-        Desc = Fmt.Or(j.Run.Description, Copy.Detail.NoDescription);
-        var meta = new List<string> { $"{Copy.Detail.Timeout} {string.Format(Copy.Time.Seconds, j.Run.TimeoutSeconds)}" };
-        if (j.Run.Env.Count > 0) meta.Add($"{Copy.Detail.EnvNames}: {string.Join(", ", j.Run.Env.Keys)}");
-        if (!string.IsNullOrEmpty(j.Run.Session)) meta.Add($"{Copy.Detail.SessionName}: {j.Run.Session}");
-        if (j.Run.Profile) meta.Add(Copy.Detail.Profile);
-        Meta = string.Join("  ·  ", meta);
+        get
+        {
+            var meta = new List<string> { $"{Copy.Detail.Timeout} {string.Format(Copy.Time.Seconds, run.TimeoutSeconds)}" };
+            if (run.Env.Count > 0) meta.Add($"{Copy.Detail.EnvNames}: {string.Join(", ", run.Env.Keys)}");
+            if (!string.IsNullOrEmpty(run.Session)) meta.Add($"{Copy.Detail.SessionName}: {run.Session}");
+            if (run.Profile) meta.Add(Copy.Detail.Profile);
+            return string.Join("  ·  ", meta);
+        }
     }
-    public string Code { get; }
-    public string Cwd { get; }
-    public string Meta { get; }
     /// <summary>The description as sent; used only to detect changes.</summary>
-    public string Raw { get; }
-    public string Desc { get; }
-    public bool HasDesc { get; }
+    public string Raw => run.Description;
+    public string Desc => Fmt.Or(run.Description, Copy.Detail.NoDescription);
+    public bool HasDesc => !string.IsNullOrWhiteSpace(run.Description);
     public string DescLine => Desc.ReplaceLineEndings(" ");
 }
 
@@ -94,8 +101,8 @@ public sealed class GrantVm : Bindable
         this.main = main; info = a; Id = a.Id;
         Approve = new Relay(() => main.Elevate(Cli.Approve, Id, this), () => IsPending);
         Restart = new Relay(() => main.Elevate(Cli.Resume, Id, this), () => IsActive && !WorkerOn);
-        Deny = new Confirm(Copy.Detail.Deny, Copy.Detail.ConfirmDeny, () => main.Act(Ops.Deny, Id, this, Copy.Detail.Denied, Copy.Verb.Deny), () => IsPending);
-        Revoke = new Confirm(Copy.Detail.Revoke, Copy.Detail.ConfirmRevoke, () => main.Act(Ops.Revoke, Id, this, Copy.Detail.Revoked, Copy.Verb.Revoke), () => IsActive);
+        Deny = new Confirm(() => Copy.Detail.Deny, () => Copy.Detail.ConfirmDeny, () => main.Act(Ops.Deny, Id, this, () => Copy.Detail.Denied, () => Copy.Verb.Deny), () => IsPending);
+        Revoke = new Confirm(() => Copy.Detail.Revoke, () => Copy.Detail.ConfirmRevoke, () => main.Act(Ops.Revoke, Id, this, () => Copy.Detail.Revoked, () => Copy.Verb.Revoke), () => IsActive);
     }
 
     public string Id { get; }
@@ -106,7 +113,12 @@ public sealed class GrantVm : Bindable
     public Confirm Deny { get; }
     public Confirm Revoke { get; }
 
-    public string Client => string.IsNullOrWhiteSpace(info.Client) ? Copy.Product : info.Client;
+    /// <summary>Readable client name (display only). The authorization key is <see cref="Key"/>.</summary>
+    public string Client => Fmt.Who(info.ClientName, info.Client);
+    public string Key => Fmt.Key(info.Client);
+    /// <summary>What the grant is bound to. Always shown in full next to approve/revoke so styling never hides the permission scope.</summary>
+    public IReadOnlyList<Fact> Scope => [new(Copy.Who.Key, Key), new(Copy.Detail.User, User), new(Copy.Detail.Session, Session)];
+    public IReadOnlyList<Fact> Diag => [new(IsPending ? Copy.Diag.RequestId : Copy.Diag.GrantId, Id), new(Copy.Diag.Key, Key), new(Copy.Diag.Sid, info.Sid), new(Copy.Diag.SessionId, Session)];
     public string Reason => string.IsNullOrWhiteSpace(info.Label) ? Copy.Detail.NoReason : info.Label;
     public string ReasonLine => string.IsNullOrWhiteSpace(info.Label) ? Copy.Detail.NoReason : info.Label.ReplaceLineEndings(" ");
     public string TaskName => Fmt.Or(info.TaskName, Copy.Detail.NoTaskName);
@@ -124,7 +136,7 @@ public sealed class GrantVm : Bindable
     public bool IsEnded => !IsPending && !IsActive;
     public string Head => string.Format(IsPending ? Copy.Detail.From : Copy.Detail.Grant, Client);
     public string Requested => Fmt.Full(info.CreatedAt);
-    public string Spoken => string.Format(Copy.Tabs.GrantRow, Client, StateName, TaskLine, RowSub);
+    public string Spoken => string.Format(Copy.Tabs.GrantRow, TaskLine, StateName, Client, RowSub);
     public string Ends => info.ExpiresAt is { } e ? $"{Fmt.Full(e)} · {Fmt.Left(e)}" : Copy.Detail.SignOut;
     public string RowSub => IsActive ? (info.ExpiresAt is { } e ? Fmt.Left(e) : Copy.Detail.SignOut) : IsPending ? ReasonLine : Fmt.Clock(info.ExpiresAt ?? info.CreatedAt);
     public bool WorkerOn => info.HeartbeatAt is { } h && DateTimeOffset.UtcNow - h <= Timing.Heartbeat;
@@ -140,6 +152,7 @@ public sealed class GrantVm : Bindable
     public string Notice { get => notice; private set => Set(ref notice, value); }
     public bool NoticeBad { get => bad; private set => Set(ref bad, value); }
     public void Say(string text, bool error) { NoticeBad = error; Notice = text; }
+    public void Touch() => Raise(string.Empty);
 
     public void Update(AccessInfo a, IReadOnlyList<JobInfo> jobs)
     {
@@ -168,13 +181,25 @@ public sealed class JobVm : Bindable
     {
         this.main = main; job = j; Id = j.Id; Cmd = new CmdVm(j);
         Toggle = new Relay(() => Shown = !Shown, () => job.Result is not null);
-        Cancel = new Confirm(Copy.Detail.Cancel, Copy.Detail.ConfirmCancel, () => main.Act(Ops.Cancel, Id, this, Copy.Detail.Cancelled, Copy.Verb.Cancel), () => Fmt.Live(job.State));
+        Cancel = new Confirm(() => Copy.Detail.Cancel, () => Copy.Detail.ConfirmCancel, () => main.Act(Ops.Cancel, Id, this, () => Copy.Detail.Cancelled, () => Copy.Verb.Cancel), () => Fmt.Live(job.State));
     }
     public string Id { get; }
     public CmdVm Cmd { get; private set; }
     public ICommand Toggle { get; }
     public Confirm Cancel { get; }
-    public string Client => string.IsNullOrWhiteSpace(job.Client) ? Copy.Product : job.Client;
+    public string Client => Fmt.Who(job.ClientName, job.Client);
+    public string TaskName => Fmt.Or(job.TaskName, Copy.Detail.NoTaskName);
+    public bool HasTask => !string.IsNullOrWhiteSpace(job.TaskName);
+    public IReadOnlyList<Fact> Diag
+    {
+        get
+        {
+            var d = new List<Fact> { new(Copy.Diag.TaskId, Id), new(Copy.Diag.Key, Fmt.Key(job.Client)), new(Copy.Diag.Sid, job.OwnerSid), new(Copy.Diag.SessionId, job.SessionId.ToString()) };
+            if (job.GrantId is { Length: > 0 } g) d.Insert(1, new(Copy.Diag.GrantId, g));
+            if (job.Result is { } r) d.Add(new(Copy.Diag.EnvId, r.EnvironmentId));
+            return d;
+        }
+    }
     public string Head => string.Format(Copy.Detail.Task, Client);
     public string Line => Cmd.DescLine;
     public bool HasDesc => Cmd.HasDesc;
@@ -189,7 +214,7 @@ public sealed class JobVm : Bindable
     public string Engine => job.Result?.Engine ?? "";
     public string Identity => job.Result?.Identity ?? "";
     public string ExitCode => job.Result?.ExitCode.ToString() ?? "";
-    public string Environment => job.Result is { } r ? $"{Fmt.ClockSec(r.EnvironmentAt)} · {r.EnvironmentId[..Math.Min(8, r.EnvironmentId.Length)]}" : "";
+    public string Environment => job.Result is { } r ? Fmt.ClockSec(r.EnvironmentAt) : "";
     public bool Shown { get => shown; set { if (Set(ref shown, value)) { Raise(nameof(ToggleText)); Raise(nameof(Output)); Raise(nameof(Errors)); } } }
     public string ToggleText => Shown ? Copy.Detail.HideOutput : Copy.Detail.ShowOutput;
     public string OutputHint => job.Result is null ? Copy.Detail.OutputPending : Copy.Detail.OutputWarn;
@@ -198,6 +223,7 @@ public sealed class JobVm : Bindable
     public string Notice { get => notice; private set => Set(ref notice, value); }
     public bool NoticeBad { get => bad; private set => Set(ref bad, value); }
     public void Say(string text, bool error) { NoticeBad = error; Notice = text; }
+    public void Touch() => Raise(string.Empty);
     public void Update(JobInfo j)
     {
         var codeChanged = j.Run.Code != job.Run.Code || j.Run.Description != job.Run.Description;
@@ -219,7 +245,7 @@ public sealed class MainVm : Bindable
     public MainVm(Monitor monitor, string? backend)
     {
         this.monitor = monitor; this.backend = backend; status = monitor.Current;
-        RevokeAll = new Confirm(Copy.Header.RevokeAll, Copy.Header.ConfirmAll, RevokeEvery, () => Online && ActiveCount > 0);
+        RevokeAll = new Confirm(() => Copy.Header.RevokeAll, () => Copy.Header.ConfirmAll, RevokeEvery, () => Online && ActiveCount > 0);
         Retry = new Relay(monitor.Retry, () => !Online);
     }
 
@@ -312,17 +338,39 @@ public sealed class MainVm : Bindable
     }
 
     /// <summary>Sends a deny/revoke/cancel and reports the outcome on the item. Never assumes success.</summary>
-    public async Task Act(string op, string id, Bindable target, string ok, string verb)
+    public async Task Act(string op, string id, Bindable target, Func<string> ok, Func<string> verb)
     {
         void Say(string t, bool e) { if (target is GrantVm g) g.Say(t, e); else if (target is JobVm j) j.Say(t, e); }
         try
         {
             var r = await Launch.Send(new Request { Op = op, Id = id });
-            Say(r.Ok ? ok : string.Format(Copy.Detail.ActionFailed, verb, Fmt.Err(r)), !r.Ok);
+            Say(r.Ok ? ok() : string.Format(Copy.Detail.ActionFailed, verb(), Fmt.Err(r)), !r.Ok);
         }
-        catch (Exception e) { Say(string.Format(Copy.Detail.ActionFailed, verb, Fmt.Err(e)), true); }
+        catch (Exception e) { Say(string.Format(Copy.Detail.ActionFailed, verb(), Fmt.Err(e)), true); }
         monitor.Retry();
     }
+
+    /// <summary>Interface language, offered in the header and the tray menu. Switching is display-only: no UAC, no broker restart, no grant change.</summary>
+    public bool IsZh { get => L.Current == Lang.Zh; set { if (value) Pick(Lang.Zh); } }
+    public bool IsEn { get => L.Current == Lang.En; set { if (value) Pick(Lang.En); } }
+    public static void Pick(Lang l)
+    {
+        if (l == L.Current) return;
+        Prefs.Save(l);
+        L.Set(l);
+    }
+
+    /// <summary>Re-reads every displayed string after a language switch. Messages already shown stay as they were said.</summary>
+    public void Relabel()
+    {
+        RevokeAll.Relabel();
+        foreach (var g in Requests.Concat(Access)) { g.Deny.Relabel(); g.Revoke.Relabel(); g.Touch(); }
+        foreach (var t in Tasks) { t.Cancel.Relabel(); t.Touch(); }
+        Raise(string.Empty);
+    }
+
+    /// <summary>Synthetic snapshot for the offline self-test and render check; never sent anywhere.</summary>
+    public void Seed(Status s, Tab t) { Viewing = false; Apply(s); Tab = t; Raise(string.Empty); }
 
     /// <summary>Opens the elevated approval/resume window. Only reachable from a button click.</summary>
     public async Task Elevate(string flag, string id, GrantVm g)

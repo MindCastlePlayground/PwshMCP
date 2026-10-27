@@ -14,7 +14,7 @@ public sealed class ApproveVm : Bindable
     readonly string? backend;
     readonly bool resume;
     Step step = Step.Loading;
-    Life span =Life.SignOut;
+    Life span = Life.SignOut;
     string message = Copy.Approve.Loading;
     bool approved;
     AccessInfo? grant;
@@ -46,7 +46,12 @@ public sealed class ApproveVm : Bindable
     public string CancelText => step is Step.Ready or Step.Loading ? Copy.Approve.Cancel : Copy.Approve.Close;
     public string ConfirmText => resume ? Copy.Approve.ResumeConfirm : Copy.Approve.Confirm;
 
-    public string Client => grant is null ? "" : string.IsNullOrWhiteSpace(grant.Client) ? Copy.Product : grant.Client;
+    /// <summary>Readable client name for the headline; display only, never called a verified identity.</summary>
+    public string Client => grant is null ? "" : Fmt.Who(grant.ClientName, grant.Client);
+    /// <summary>The real authorization key this approval binds to, shown in full in the scope block.</summary>
+    public string Key => Fmt.Key(grant?.Client);
+    public IReadOnlyList<Fact> Scope => grant is null ? [] : [new(Copy.Who.Key, Key), new(Copy.Detail.User, User), new(Copy.Detail.Session, Session)];
+    public IReadOnlyList<Fact> Diag => grant is null ? [] : [new(Copy.Diag.RequestId, grant.Id), new(Copy.Diag.Key, Key), new(Copy.Diag.Sid, grant.Sid), new(Copy.Diag.SessionId, Session)];
     public string Head => string.Format(resume ? Copy.Approve.ResumeHead : Copy.Approve.Head, Client);
     public string Reason => string.IsNullOrWhiteSpace(grant?.Label) ? Copy.Detail.NoReason : grant!.Label;
     public string TaskName => Fmt.Or(grant?.TaskName, Copy.Detail.NoTaskName);
@@ -104,6 +109,16 @@ public sealed class ApproveVm : Bindable
         }
         catch (Exception e) { Block(string.Format(Copy.Approve.Unreachable, Fmt.Err(e))); }
         finally { Raise(string.Empty); }
+    }
+
+    /// <summary>Synthetic request for the offline self-test and render check. Reaches no broker; Go stays a no-op because nothing calls it.</summary>
+    public void Seed(AccessInfo g, IEnumerable<JobInfo> jobs)
+    {
+        grant = g; Waiting.Clear();
+        foreach (var j in jobs) Waiting.Add(new CmdVm(j));
+        Message = resume ? "" : Copy.Approve.Elevation;
+        Step = Step.Ready;
+        Raise(string.Empty);
     }
 
     void Block(string text) { Message = text; Step = Step.Blocked; }

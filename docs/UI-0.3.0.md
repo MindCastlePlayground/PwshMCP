@@ -35,6 +35,14 @@ PwshMcp.Tray.exe --render-check [输出目录]
   - `clipped`：主窗在 720/1000/1400px 宽度、三个标签页下，批准窗在 520/640px 宽度下，分别用中英文布局，报告被裁切且没有省略号的 TextBlock。
 - `--render-check` 另外用 `RenderTargetBitmap` 输出 PNG，文件名形如 `main-zh-Requests-720.png`、`approve-en-520.png`。
 
+## 正式推送后验收（2026-10-28）
+
+- 代码提交 `01041a9` 推送 main 后，执行 `scripts/build.ps1 -Output artifacts/package`，正式包构建成功。
+- `dotnet artifacts/package/PwshMcp.Tray.dll --render-check artifacts/ui-0.3.0`：**110 checks, 0 failed**，26 张 PNG。覆盖共享模板实际语言、三种主窗宽度、两种批准窗宽度及 360/900px 代码渲染。
+- 主代理查看实际 PNG，确认窄窗英文 Administrator 不再拆字；中英文使用相同字段顺序和列结构，允许翻译长度导致自然高度差异。代码长行折行和高亮已在独立控件图中检查。
+- 修复了切换语言时共享模板保留旧文案的问题；测试直接读取 TextBlock 的 Run/Span 文本，以覆盖目录等组合标签。
+- 本次未启动真实窗口、触发 UAC、替换运行中托盘或修改实际授权；下面早期诊断记录保留作为历史证据。
+
 ## 限制
 
 - 本地诊断构建（Release，输出到 Temp）运行 `--render-check`：88 项检查，0 项失败，生成 22 张 PNG（中/英 × 主窗口三页 × 720/1000/1400，批准窗 520/640）。正式验收仍以主代理提交后的 `artifacts/package` 结果为准。

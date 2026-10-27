@@ -170,7 +170,7 @@ public sealed class CodeView : Border
         };
         box.SetResourceReference(TextBoxBase.SelectionBrushProperty, K.Accent);
         box.SetResourceReference(TextBoxBase.CaretBrushProperty, K.Ink);
-        box.SetResourceReference(ForegroundProperty, K.Ink);
+        box.SetResourceReference(Control.ForegroundProperty, K.Ink);
         box.CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, e) => { Put(Pick(box.Selection.Start, box.Selection.End)); e.Handled = true; }, (_, e) => { e.CanExecute = true; e.Handled = true; }));
         box.CommandBindings.Add(new CommandBinding(ApplicationCommands.Cut, (_, e) => e.Handled = true, (_, e) => { e.CanExecute = false; e.Handled = true; }));
         System.Windows.Automation.AutomationProperties.SetName(box, Copy.Code.Name);

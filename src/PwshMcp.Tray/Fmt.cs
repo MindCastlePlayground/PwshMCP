@@ -1,12 +1,11 @@
 using System.IO;
-using System.IO.Pipes;
 using PwshMcp.Shared;
 
 namespace PwshMcp.Tray;
 
 public enum Tone { Wait, On, Off, Bad, Info }
 
-/// <summary>Display formatting: time, state and errors.</summary>
+/// <summary>Display formatting: time, state, names and errors. Dates follow the interface language, not the OS locale.</summary>
 public static class Fmt
 {
     public static string Ago(DateTimeOffset at)
@@ -26,9 +25,9 @@ public static class Fmt
         return string.Format(Copy.Time.Left, string.Format(Copy.Time.HoursMin, (int)d.TotalHours, d.Minutes));
     }
 
-    public static string Clock(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.Clock);
-    public static string ClockSec(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.ClockSec);
-    public static string Full(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.Full);
+    public static string Clock(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.Clock, L.Culture);
+    public static string ClockSec(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.ClockSec, L.Culture);
+    public static string Full(DateTimeOffset at) => at.ToLocalTime().ToString(Copy.Time.Full, L.Culture);
     public static string Stamp(DateTimeOffset at) => $"{Full(at)} · {Ago(at)}";
 
     public static string Name(AccessState s) => s switch
@@ -57,16 +56,6 @@ public static class Fmt
 
     public static bool Live(JobState s) => s is JobState.NeedsApproval or JobState.NeedsSession or JobState.Queued or JobState.Running;
 
-    public static string FirstLine(string code)
-    {
-        foreach (var line in code.Split('\n'))
-        {
-            var t = line.Trim();
-            if (t.Length > 0) return t.Length > 120 ? t[..120] + "…" : t;
-        }
-        return "";
-    }
-
     public static string Err(Exception e) => e switch
     {
         OperationCanceledException or TimeoutException => Copy.Err.Timeout,
@@ -87,4 +76,18 @@ public static class Fmt
     /// <summary>Agent-supplied text, or the explicit "old record" fallback. Never derived from code or client name.</summary>
     public static string Or(string? text, string missing) => string.IsNullOrWhiteSpace(text) ? missing : text.Trim();
     public static string OneLine(string? text, string missing) => Or(text, missing).ReplaceLineEndings(" ");
+
+    /// <summary>
+    /// Readable client name: the configured/declared display name, else a human-looking key (older records), else "Unnamed client".
+    /// Hash-like keys never become the headline; they stay in the scope block and diagnostics.
+    /// </summary>
+    public static string Who(string? name, string? key)
+    {
+        if (!string.IsNullOrWhiteSpace(name)) return name.Trim();
+        var k = key?.Trim() ?? "";
+        if (k.Length is > 0 and <= 40 && !(k.Length >= 16 && k.All(Uri.IsHexDigit))) return k;
+        return Copy.Who.Unnamed;
+    }
+
+    public static string Key(string? key) => string.IsNullOrWhiteSpace(key) ? Copy.Who.NoKey : key;
 }

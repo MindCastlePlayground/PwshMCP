@@ -293,10 +293,19 @@ public static class Check
 
     static IEnumerable<string> Texts(DependencyObject d)
     {
-        if (d is TextBlock tb) yield return tb.Text;
+        if (d is TextBlock tb) yield return (tb.Inlines.Count > 0 ? Flat(tb.Inlines) : tb.Text).TrimStart();
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
             foreach (var c in Texts(VisualTreeHelper.GetChild(d, i))) yield return c;
     }
+
+    /// <summary>Text of the Run/Span inlines as laid out; TextBlock.Text alone misses labels composed of Runs.</summary>
+    static string Flat(IEnumerable<Inline> xs) => string.Concat(xs.Select(x => x switch
+    {
+        Run r => r.Text,
+        Span s => Flat(s.Inlines),
+        LineBreak => "\n",
+        _ => "",
+    }));
 
     static void Lay(Border host, int w, int h, string what, string? dir, string kind, string tag, string size)
     {

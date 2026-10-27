@@ -33,8 +33,9 @@
             <StackPanel Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}">
               <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,22,0,6" Text="{x:Static t:Copy+Detail.Reason}"/>
               <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Text="{Binding Reason}"/>
-              <UniformGrid Margin="0,20,0,0" Columns="3">
-                <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Who.Name}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
+              <!-- Client takes the full row; times share two columns below, so narrow panes and either language keep one structure. -->
+              <StackPanel Style="{StaticResource {x:Static t:K.Fact}}" Margin="0,20,0,14"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Who.Name}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
+              <UniformGrid Columns="2">
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.RequestEnds}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding RequestEnds}"/></StackPanel>
               </UniformGrid>
@@ -133,8 +134,8 @@
             <TextBlock Style="{StaticResource {x:Static t:K.Title}}" Text="{Binding Head}"/>
             <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,3" Text="{x:Static t:Copy+Detail.Description}"/>
             <TextBlock Style="{StaticResource {x:Static t:K.Desc}}" DataContext="{Binding Cmd}" Text="{Binding Desc, Mode=OneWay}" AutomationProperties.Name="{Binding Desc, Mode=OneWay}"/>
-            <UniformGrid Margin="0,20,0,0" Columns="3">
-              <StackPanel Style="{StaticResource {x:Static t:K.Fact}}">
+            <!-- Task name takes the full row; client and privilege share two columns below, the same structure in either language. -->
+            <StackPanel Style="{StaticResource {x:Static t:K.Fact}}" Margin="0,20,0,14">
                 <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.TaskName}"/>
                 <TextBlock Text="{Binding TaskName}">
                   <TextBlock.Style>
@@ -143,7 +144,8 @@
                     </Style>
                   </TextBlock.Style>
                 </TextBlock>
-              </StackPanel>
+            </StackPanel>
+            <UniformGrid Columns="2">
               <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Who.Name}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
               <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Privilege}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Privilege}"/></StackPanel>
             </UniformGrid>

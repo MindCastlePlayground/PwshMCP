@@ -52,7 +52,7 @@ public static class Recovery
                 if (await Ready()) return new(RepairState.Ready);
                 await Task.Delay(300);
             } while (DateTimeOffset.UtcNow < until);
-            return new(RepairState.Failed, AdminNames.Offline);
+            return new(elevate ? RepairState.Failed : RepairState.NeedsElevation, AdminNames.Offline);
         }
         catch (Win32Exception e) when (e.NativeErrorCode == Cancelled) { return new(RepairState.Cancelled); }
         catch (Exception e) { return new(RepairState.Failed, e.GetType().Name + ": " + e.Message); }

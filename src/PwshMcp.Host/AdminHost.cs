@@ -37,8 +37,7 @@ internal sealed class AdminHost
                     await pipe.WaitForConnectionAsync(life.Token);
                     await Serve(pipe, life.Token);
                 }
-                // A client can retain its handle briefly after the server finishes a reply.
-                // With one server instance, that is backpressure, not an executor failure.
+                // Pipe instance exhaustion is temporary; retry without terminating the coordinator.
                 catch (IOException e) when (PipeFault.IsBusy(e)) { await Task.Delay(100, life.Token); }
             }
         }

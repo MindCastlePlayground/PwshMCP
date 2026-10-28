@@ -46,3 +46,4 @@
 - 2026-10-28 README 改版：搜索尚不存在的 .github 目录及误猜的 Host/FreshEnvironment.cs 报路径错误，后续先用 rg --files 确认。apply_patch 同一补丁删除再新增 README 再次被拒绝，原文件未修改；备份后拆为独立操作完成。不得再将同一路径的删除/新增放在一个补丁中。
 - 2026-10-29 TaskHub 接入：默认沙箱 CreateProcessAsUserW 5，原范围 require_escalated 重试成功。误猜 App.xaml.cs 失败后经 rg --files 定位 App.cs；TaskHub 根目录没有 AGENTS.md / .git，后续先检查存在性，不对其执行 Git 操作。
 - 2026-10-29 TaskHub 接入：rg 的路径参数含未展开 Mcp* 导致 Windows 路径语法错误，后续直接传已确认的 Mcp.cs 或使用 -g 过滤。
+- 2026-10-29 恢复入口：读取 Claude 尚未创建的 RecoveryWindow.xaml 返回退出码 1；后续仅在文件存在后读取。诊断旧协调器任务 LastTaskResult=1，但旧版本未持久化异常；不得将推测当作已确认根因。

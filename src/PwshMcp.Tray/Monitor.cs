@@ -62,10 +62,12 @@ public sealed class Monitor : IDisposable
     {
         while (!stop.IsCancellationRequested)
         {
-            if (restart) { StopOwned(); restart = false; }
+            var restarting = restart;
+            if (restarting) StopOwned();
             if (retry) { retry = false; gaveUp = false; restarts.Clear(); }
             Emit(await Tick());
             Interlocked.Increment(ref cycles);
+            if (restarting) restart = false;
             try { await kick.WaitAsync(Timing.Poll, stop.Token); } catch (OperationCanceledException) { return; }
         }
     }

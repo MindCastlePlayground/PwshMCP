@@ -184,7 +184,7 @@ This section explains grant scope, the effects of revocation and how audit data 
 
 - Locking the screen does **not** end access. Signing out ends elevated execution. After expiry or revocation, no new jobs are dispatched.
 - A Broker restart invalidates all pending and active grants. Unfinished jobs are marked “outcome unknown” and are **never rerun automatically**.
-- If the executor is offline, PwshMCP does not silently fall back to UAC prompts. You need to repair or restore the executor.
+- If the connection or executor is offline, click its header status or **Repair connections** in the tray menu. Try reconnecting or starting the registered executor first. Only the explicit administrator fallback opens UAC. Restarting the local broker invalidates current grants and requires confirmation in the window. See [recovery UI notes](docs/UI-RECOVERY.md).
 - The agent host's own approval rules stay independent. PwshMCP does not turn them off for you.
 
 **Data and identity**

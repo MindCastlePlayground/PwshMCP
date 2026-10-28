@@ -31,6 +31,14 @@ public static class Names
     public const string Rules = "rules";
     /// <summary>Automation id of the footer lifetime link that anchors the lifetime popup.</summary>
     public const string LifeBtn = "pm.lifeBtn";
+    /// <summary>Automation ids of the controls that open the repair window: header chips, header button, executor-down block.</summary>
+    public const string ConnBtn = "pm.connBtn", GateBtn = "pm.gateBtn", FixExec = "pm.fixExec";
+}
+
+/// <summary>Resource keys added for the repair window (the base set lives in <see cref="K"/>).</summary>
+public static class Rk
+{
+    public const string ChipBtn = "pm.chipBtn", Result = "pm.result", Part = "pm.part";
 }
 
 public static class Timing
@@ -41,6 +49,7 @@ public static class Timing
     public static readonly TimeSpan RequestLife = TimeSpan.FromHours(24), RestartWindow = TimeSpan.FromMinutes(1);
     public static readonly TimeSpan Copied = TimeSpan.FromMilliseconds(1500), Fade = TimeSpan.FromMilliseconds(180), Turn = TimeSpan.FromMilliseconds(120);
     public static readonly TimeSpan GateReady = TimeSpan.FromSeconds(5), GateDown = TimeSpan.FromSeconds(3);
+    public static readonly TimeSpan Cue = TimeSpan.FromMilliseconds(700);
     public const int MaxRestarts = 3;
 }
 
@@ -358,8 +367,8 @@ public static class Copy
         public static string Down => T("执行器离线", "Executor offline");
         public static string Broken => T("执行器需修复", "Executor needs repair");
         public static string Head => T("暂时无法在此批准", "Can't approve here right now");
-        public static string DownBody => T("没有连上已安装的管理员执行器。它由安装程序注册，在你登录 Windows 时启动。从未安装：以管理员身份运行一次 scripts\\install-desktop.ps1。已安装：注销后重新登录，或重新运行安装脚本修复。",
-            "The installed admin executor isn't answering. The installer registers it to start when you sign in to Windows. Never installed: run scripts\\install-desktop.ps1 once as administrator. Already installed: sign out and back in, or rerun the installer to repair it.");
+        public static string DownBody => T("没有连上已安装的管理员执行器。它由安装程序注册，在你登录 Windows 时启动。点“修复执行器”可以立即启动它；从未安装则以管理员身份运行一次 scripts\\install-desktop.ps1。",
+            "The installed admin executor isn't answering. The installer registers it to start when you sign in to Windows. Choose Fix executor to start it now. Never installed: run scripts\\install-desktop.ps1 once as administrator.");
         public static string BrokenBody => T("管理员执行器有响应，但未通过检查：{0}。请以管理员身份重新运行 scripts\\install-desktop.ps1 修复安装。",
             "The admin executor answered but didn't pass checks: {0}. Rerun scripts\\install-desktop.ps1 as administrator to repair the install.");
         public static string NoPrompt => T("托盘不会改为弹出 Windows 提示。请求会继续等待，你仍可拒绝。", "The tray won't fall back to a Windows prompt. The request keeps waiting, and you can still deny it.");
@@ -373,6 +382,65 @@ public static class Copy
         public static string Invalid => T("执行器拒绝了这个请求", "it rejected the request");
         public static string Protected => T("执行器不在受保护的安装位置运行", "it isn't running from the protected install location");
         public static string Worker => T("授权已批准，但管理员命令执行器未能启动", "access was approved, but the admin worker didn't start");
+    }
+
+    /// <summary>Repair window: the local connection and the admin executor, each with its own state, action and checked result.</summary>
+    public static class Fix
+    {
+        public static string Title => T("修复连接", "Repair connections");
+        public static string Menu => T("修复连接…", "Repair connections…");
+        public static string Intro => T("两部分分别修复。只在你点击时尝试，结果以实际检查为准。",
+            "Each part is repaired on its own, only when you click. Results come from a real check.");
+        public static string Hint => T("查看状态和修复选项", "See status and repair options");
+        public static string Spoken => T("{0}，查看状态和修复选项", "{0}, see status and repair options");
+
+        public static string ConnHead => T("本地连接", "Local connection");
+        public static string ConnWhat => T("托盘与本地代理之间的连接，智能体通过代理提交命令。", "The tray's link to the local broker that agents send commands through.");
+        public static string ConnOn => T("已连接，请求可以正常到达。", "Connected. Requests come through.");
+        public static string ConnWait => T("正在连接本地代理…", "Connecting to the local broker…");
+        public static string ConnOff => T("托盘连不上本地代理。“重新连接”会再检查一次；没有代理在运行时，托盘会启动它。",
+            "The tray can't reach the local broker. Reconnect checks again, and starts the broker if none is running.");
+        public static string Reconnect => T("重新连接(_N)", "Reco_nnect");
+        public static string Reconnecting => T("正在重新连接…", "Reconnecting…");
+        public static string Restart => T("重启本地代理(_B)", "Restart _broker");
+        public static string ConfirmRestart => T("确认重启", "Confirm restart");
+        public static string Restarting => T("正在重启代理…", "Restarting the broker…");
+        public static string RestartWarn => T("重启会使当前所有授权失效，正在运行的任务可能中断。", "Restarting ends all current access, and running tasks may be interrupted.");
+        public static string RestartTasks => T("重启会使当前所有授权失效，{0} 个排队或运行中的任务可能中断。", "Restarting ends all current access, and {0} queued or running tasks may be interrupted.");
+        public static string Other => T("代理由其他程序运行，托盘不会结束它。", "Another program runs this broker; the tray won't stop it.");
+
+        public static string ExecHead => T("管理员执行器", "Admin executor");
+        public static string ExecWhat => T("已安装的后台程序。你批准请求时，由它授予管理员权限，不弹出 Windows 提示。",
+            "The installed service that applies your approvals without a Windows prompt.");
+        public static string ExecOn => T("执行器就绪，可以在此批准请求。", "Ready. You can approve requests here.");
+        public static string ExecCheck => T("正在检查执行器…", "Checking the executor…");
+        public static string ExecOff => T("执行器没有响应。“启动执行器”会运行安装时注册的计划任务，通常不会弹出 Windows 提示。",
+            "The executor isn't answering. Start executor runs the scheduled task set up at install, which normally shows no Windows prompt.");
+        public static string ExecBroken => T("执行器有响应，但未通过检查。可以再启动一次；仍然失败时，以管理员身份重新运行 scripts\\install-desktop.ps1。",
+            "The executor answered but failed its checks. Try starting it again; if that fails, rerun scripts\\install-desktop.ps1 as administrator.");
+        public static string Start => T("启动执行器(_S)", "_Start executor");
+        public static string Starting => T("正在启动并检查…", "Starting and checking…");
+        public static string ElevHead => T("需要管理员确认", "Needs administrator approval");
+        public static string ElevBody => T("可改为以管理员身份启动执行器。Windows 会询问一次，效果持续到注销。",
+            "Start the executor as administrator instead. Windows asks once, and it lasts until you sign out.");
+        public static string ElevNote => T("这不会批准任何请求，之后每个请求仍需你批准。", "This approves nothing; each request still needs your approval.");
+        public static string Elevate => T("以管理员身份启动(_A)", "Start as _administrator");
+        public static string Elevating => T("等待 Windows 确认…", "Waiting for Windows…");
+        public static string ExecLink => T("修复执行器(_F)…", "_Fix executor…");
+
+        public static string ConnReady => T("已重新连接，检查通过。", "Reconnected. The check passed.");
+        public static string ExecReady => T("执行器已就绪，检查通过。", "The executor is ready. The check passed.");
+        public static string Started => T("已启动，但 8 秒内没有通过检查。稍后会自动再查，也可以重试。", "Started, but it didn't pass the check within 8 seconds. It's checked again shortly, or you can retry.");
+        public static string Failed => T("未能恢复。原因见下方诊断信息。", "Not recovered. Diagnostics below has the cause.");
+        public static string Cancelled => T("已取消 Windows 提示，没有做任何更改。", "The Windows prompt was cancelled. Nothing changed.");
+        public static string NeedsElev => T("计划任务不存在或被拒绝，没有弹出提示。", "The scheduled task is missing or was refused. No prompt was shown.");
+        public static string NotOwned => T("代理由其他程序运行，托盘没有结束它。请在那个程序中重启，或重新连接。", "Another program runs the broker, so the tray didn't stop it. Restart it there, or reconnect.");
+
+        public static string DiagConn => T("连接详情", "Connection detail");
+        public static string DiagExec => T("执行器详情", "Executor detail");
+        public static string DiagConnLast => T("上次连接修复", "Last connection repair");
+        public static string DiagExecLast => T("上次执行器修复", "Last executor repair");
+        public static string Close => T("关闭(_C)", "_Close");
     }
 
     public static class Time
@@ -413,6 +481,7 @@ public static class Report
     public const string Main = "main", Approve = "approve", Name = "{0}-{1}-{2}{3}";
     public const string Gate = "gate", Inline = "inline", Sent = "sent", Down = "down", Broken = "broken", Failed = "failed";
     public const string Pop = "popup";
+    public const string Repair = "repair", Dialog = "dialog", Both = "both-down", Elev = "elevate", Busy = "busy";
     public const string Ended = "ended", Mixed = "mixed", EndedOnly = "ended-only", ActiveOnly = "active-only";
     public const string Scroll = "scroll", Top = "top", Bottom = "bottom", Detail = "detail";
 }

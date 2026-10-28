@@ -22,7 +22,9 @@ public partial class MainWindow : Window
         DataContext = vm;
         Group(vm.Access);
         vm.PropertyChanged += OnVm;
+        vm.Fix.Asked += Repair;
         Pop = v => life.IsOpen = v;
+        ShowFix = w => w.Show();
         IsVisibleChanged += (_, _) => { vm.Viewing = IsVisible && WindowState != WindowState.Minimized; if (!IsVisible) Shut(false); };
         StateChanged += (_, _) => { vm.Viewing = IsVisible && WindowState != WindowState.Minimized; Shut(false); };
         // A popup left floating over a moved, resized or backgrounded window would point at the wrong place.
@@ -73,6 +75,34 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
         FocusList();
+        if (vm.Fix.Reopen) { vm.Fix.Reopen = false; Repair(vm.Fix.Focus); }
+    }
+
+    // ---- repair window: one per main window, opened only by a click (header chip, Fix executor, tray menu) ----------
+
+    RecoveryWindow? fix;
+    /// <summary>Show seam. The offline check swaps it so the repair window is built and laid out but never shown.</summary>
+    internal Action<Window> ShowFix;
+    internal RecoveryWindow? Fix => fix;
+
+    void OnFixConn(object sender, RoutedEventArgs e) => Repair(Part.Conn);
+    void OnFixExec(object sender, RoutedEventArgs e) => Repair(Part.Exec);
+
+    /// <summary>Opens the repair window pointed at <paramref name="p"/>, or re-aims the open one. Opening it repairs nothing by itself.</summary>
+    internal void Repair(Part p)
+    {
+        vm.Fix.Focus = p;
+        if (fix is null)
+        {
+            fix = new RecoveryWindow(vm.Fix);
+            // Owned only once this window has a handle; otherwise it centres on screen (tray menu before first show).
+            if (IsVisible) fix.Owner = this; else fix.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            var mine = fix;
+            fix.Closed += (_, _) => { if (ReferenceEquals(fix, mine)) fix = null; };
+            ShowFix(fix);
+        }
+        else if (fix.IsVisible) fix.Activate();
+        fix.Aim(p);
     }
 
     void FocusList()
@@ -205,6 +235,9 @@ public partial class MainWindow : Window
         retired = true;
         Shut(false);
         vm.PropertyChanged -= OnVm;
+        vm.Fix.Asked -= Repair;
+        // A language switch rebuilds this window; an open repair window is rebuilt with it (an attempt in flight keeps running in the model).
+        if (fix is { } f) { fix = null; vm.Fix.Reopen = f.IsVisible; if (f.IsVisible) f.Close(); }
     }
 
     protected override void OnClosing(CancelEventArgs e)

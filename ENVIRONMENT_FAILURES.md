@@ -47,3 +47,6 @@
 - 2026-10-29 TaskHub 接入：默认沙箱 CreateProcessAsUserW 5，原范围 require_escalated 重试成功。误猜 App.xaml.cs 失败后经 rg --files 定位 App.cs；TaskHub 根目录没有 AGENTS.md / .git，后续先检查存在性，不对其执行 Git 操作。
 - 2026-10-29 TaskHub 接入：rg 的路径参数含未展开 Mcp* 导致 Windows 路径语法错误，后续直接传已确认的 Mcp.cs 或使用 -g 过滤。
 - 2026-10-29 恢复入口：读取 Claude 尚未创建的 RecoveryWindow.xaml 返回退出码 1；后续仅在文件存在后读取。诊断旧协调器任务 LastTaskResult=1，但旧版本未持久化异常；不得将推测当作已确认根因。
+- 2026-10-29: plain `git push` failed because main has no upstream. Use explicit `git push origin main` for this checkout.
+- 2026-10-29: diagnostic read included absent Tray/Runtime.cs and returned exit 1 despite suppressed output. Use rg --files/Test-Path before optional reads; no runtime action failed.
+- 2026-10-29: Claude JSONL summary assumed message.content always contains block objects. Some events use strings; filter for dict blocks before accessing tool fields.

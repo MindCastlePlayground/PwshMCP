@@ -60,7 +60,9 @@
                   <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,8,0,0" FontSize="13.5" LineHeight="20" Text="{Binding GateBody}"/>
                   <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,8,0,0" TextWrapping="Wrap" Text="{x:Static t:Copy+Gate.NoPrompt}"/>
                   <WrapPanel Margin="0,12,0,0">
-                    <Button Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,0,12,0" Command="{Binding Recheck}" Content="{x:Static t:Copy+Gate.Recheck}"/>
+                    <Button Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,0,10,0" Click="OnFixExec" Content="{x:Static t:Copy+Fix.ExecLink}"
+                            AutomationProperties.AutomationId="{x:Static t:Names.FixExec}"/>
+                    <Button Style="{StaticResource {x:Static t:K.Quiet}}" Margin="0,0,12,0" Command="{Binding Recheck}" Content="{x:Static t:Copy+Gate.Recheck}"/>
                     <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0" VerticalAlignment="Center" Text="{Binding GateAt}"/>
                   </WrapPanel>
                 </StackPanel>
@@ -251,17 +253,23 @@
           <TextBlock Margin="8,1,22,0" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{x:Static t:Copy.Version}"
                      Typography.NumeralAlignment="Tabular"/>
         </StackPanel>
-        <DockPanel Grid.Column="1" VerticalAlignment="Center" LastChildFill="True" Margin="0,0,16,0">
-          <t:Chip DockPanel.Dock="Left" Text="{Binding ConnTitle}" Tone="{Binding ConnTone}"/>
-          <t:Chip DockPanel.Dock="Left" Margin="8,0,0,0" Text="{Binding GateTitle}" Tone="{Binding GateTone}" ToolTip="{Binding GateTip}"/>
-          <TextBlock DockPanel.Dock="Right" Margin="12,0,0,0" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding Stale}"/>
+        <DockPanel Grid.Column="1" VerticalAlignment="Center" LastChildFill="True" Margin="0,0,12,0">
+          <!-- Each status chip opens the repair window on its own part; reachable with or without a selection, online or not. -->
+          <Button DockPanel.Dock="Left" Style="{StaticResource {x:Static t:Rk.ChipBtn}}" Margin="-2,0,0,0" Click="OnFixConn" ToolTip="{x:Static t:Copy+Fix.Hint}"
+                  AutomationProperties.AutomationId="{x:Static t:Names.ConnBtn}" AutomationProperties.Name="{Binding ConnSpoken}">
+            <t:Chip Text="{Binding ConnTitle}" Tone="{Binding ConnTone}"/>
+          </Button>
+          <Button DockPanel.Dock="Left" Style="{StaticResource {x:Static t:Rk.ChipBtn}}" Margin="2,0,0,0" Click="OnFixExec" ToolTip="{Binding GateTip, TargetNullValue={x:Static t:Copy+Fix.Hint}}"
+                  AutomationProperties.AutomationId="{x:Static t:Names.GateBtn}" AutomationProperties.Name="{Binding GateSpoken}">
+            <t:Chip Text="{Binding GateTitle}" Tone="{Binding GateTone}"/>
+          </Button>
+          <TextBlock DockPanel.Dock="Right" Margin="12,0,0,0" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding Stale}"
+                     TextTrimming="CharacterEllipsis" ToolTip="{Binding Stale}"/>
           <TextBlock Margin="12,0,0,0" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}"
                      Text="{Binding ConnDetail}" ToolTip="{Binding ConnDetail}"/>
         </DockPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock MaxWidth="240" Margin="0,0,12,0" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource {x:Static t:K.Red}}" Text="{Binding Notice}"/>
-          <Button Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,0,10,0" Command="{Binding Retry}" Content="{x:Static t:Copy+Conn.Retry}"
-                  Visibility="{Binding Online, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}"/>
           <Border Background="{DynamicResource {x:Static t:K.Raised}}" CornerRadius="8" Padding="2" Margin="0,0,10,0" ToolTip="{x:Static t:Copy+Lang.Hint}"
                   AutomationProperties.Name="{x:Static t:Copy+Lang.Label}" AutomationProperties.HelpText="{x:Static t:Copy+Lang.Hint}">
             <StackPanel Orientation="Horizontal">

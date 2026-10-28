@@ -296,6 +296,146 @@ public sealed class JobVm : Bindable
     }
 }
 
+/// <summary>The two independently repairable components.</summary>
+public enum Part { Conn, Exec }
+
+/// <summary>One component's repair in flight and its last checked outcome. <see cref="Alt"/> marks the second action (restart / elevate).</summary>
+public sealed class FixPart : Bindable
+{
+    bool busy, alt; string note = "", last = ""; Tone tone = Tone.Off;
+    public bool Busy { get => busy; private set => Set(ref busy, value); }
+    public bool Alt { get => alt; private set => Set(ref alt, value); }
+    public string Note { get => note; private set => Set(ref note, value); }
+    public Tone Tone { get => tone; private set => Set(ref tone, value); }
+    /// <summary>Backend state and detail of the last attempt, verbatim; diagnostics only.</summary>
+    public string Last { get => last; private set => Set(ref last, value); }
+    public void Begin(bool second) { Alt = second; Busy = true; Note = ""; }
+    public void End(RepairResult r, string text, Tone t)
+    {
+        Last = string.IsNullOrWhiteSpace(r.Detail) ? r.State.ToString() : $"{r.State}: {r.Detail}";
+        Note = text; Tone = t; Busy = false;
+    }
+}
+
+/// <summary>
+/// Repair window model. Every attempt starts from a click and reports what the follow-up probe saw; a started process is never called ready.
+/// The elevated fallback is offered only after the backend says the scheduled task needs it, and runs only from its own button.
+/// </summary>
+public sealed class FixVm : Bindable
+{
+    public delegate Task<RepairResult> Run(bool second);
+    readonly MainVm main;
+    Run broker, exec; Func<bool> owns;
+    readonly Action recheck;
+    bool elev;
+
+    public FixVm(MainVm main, Run broker, Run exec, Func<bool> owns, Action recheck)
+    {
+        this.main = main; this.broker = broker; this.exec = exec; this.owns = owns; this.recheck = recheck;
+        Reconnect = new Relay(() => Go(Conn, false), () => !Conn.Busy && !main.Online);
+        Restart = new Confirm(() => Copy.Fix.Restart, () => Copy.Fix.ConfirmRestart, () => Go(Conn, true), () => !Conn.Busy && Owns);
+        Start = new Relay(() => Go(Exec, false), () => !Exec.Busy && !main.GateOk);
+        Elevate = new Relay(() => Go(Exec, true), () => !Exec.Busy && elev && !main.GateOk);
+    }
+
+    public FixPart Conn { get; } = new();
+    public FixPart Exec { get; } = new();
+    public ICommand Reconnect { get; }
+    public Confirm Restart { get; }
+    public ICommand Start { get; }
+    public ICommand Elevate { get; }
+    /// <summary>Which part the window was opened for; it gets focus and a brief cue.</summary>
+    public Part Focus { get; set; }
+    /// <summary>Set when a language switch closed an open repair window, so the rebuilt main window reopens it.</summary>
+    public bool Reopen { get; set; }
+    /// <summary>Raised by the tray menu; the main window opens the repair window on it.</summary>
+    public event Action<Part>? Asked;
+    public void Ask(Part p) { Focus = p; Asked?.Invoke(p); }
+    /// <summary>The part to open on: the connection while it is down (approvals need both), otherwise the executor.</summary>
+    public Part Worst => main.Online ? Part.Exec : Part.Conn;
+
+    // ---- local connection ------------------------------------------------------------------------------------------
+
+    public string ConnTitle => main.ConnTitle;
+    public Tone ConnTone => main.ConnTone;
+    public string ConnBody => main.Conn switch { Tray.Conn.Online => Copy.Fix.ConnOn, Tray.Conn.Connecting => Copy.Fix.ConnWait, _ => Copy.Fix.ConnOff };
+    public bool Owns => owns();
+    public bool ShowReconnect => !main.Online || Conn.Busy && !Conn.Alt;
+    public bool Other => main.Online && !main.Status.Owned;
+    public string ReconnectText => Conn.Busy && !Conn.Alt ? Copy.Fix.Reconnecting : Copy.Fix.Reconnect;
+    public bool ConnRunning => Conn.Busy && !Conn.Alt;
+    public bool Restarting => Conn.Busy && Conn.Alt;
+    public string RestartText => Restarting ? Copy.Fix.Restarting : Restart.Text;
+    public string RestartWarn => main.RunningCount > 0 ? string.Format(Copy.Fix.RestartTasks, main.RunningCount) : Copy.Fix.RestartWarn;
+
+    // ---- admin executor --------------------------------------------------------------------------------------------
+
+    public string GateTitle => main.GateTitle;
+    public Tone GateTone => main.GateTone;
+    public string ExecBody => main.Gate.Gate switch { Gate.Ready => Copy.Fix.ExecOn, Gate.Checking => Copy.Fix.ExecCheck, Gate.Broken => Copy.Fix.ExecBroken, _ => Copy.Fix.ExecOff };
+    public bool ShowStart => !main.GateOk || Exec.Busy;
+    public bool ShowElev => elev && !main.GateOk;
+    /// <summary>The state paragraph; once the fallback card is up, the result line and card say it instead.</summary>
+    public bool ShowBody => !ShowElev;
+    public bool Starting => Exec.Busy && !Exec.Alt;
+    public bool Elevating => Exec.Busy && Exec.Alt;
+    public string StartText => Starting ? Copy.Fix.Starting : Copy.Fix.Start;
+    public string ElevText => Elevating ? Copy.Fix.Elevating : Copy.Fix.Elevate;
+
+    public IReadOnlyList<Fact> Diag
+    {
+        get
+        {
+            var d = new List<Fact> { new(Copy.Fix.DiagConn, Fmt.Or(main.Status.Detail, ConnTitle)), new(Copy.Fix.DiagExec, Fmt.Or(main.Gate.Detail, GateTitle)) };
+            if (Conn.Last.Length > 0) d.Add(new(Copy.Fix.DiagConnLast, Conn.Last));
+            if (Exec.Last.Length > 0) d.Add(new(Copy.Fix.DiagExecLast, Exec.Last));
+            return d;
+        }
+    }
+    async Task Go(FixPart p, bool second)
+    {
+        if (p.Busy) return;
+        p.Begin(second); Touch();
+        RepairResult r;
+        try { r = await (p == Conn ? broker : exec)(second); }
+        catch (Exception e) { r = new(RepairState.Failed, e.Message); }
+        if (p == Exec)
+        {
+            // A missing or refused task unlocks the shield button; a cancelled prompt keeps it, so trying again stays one click.
+            if (r.State == RepairState.NeedsElevation) elev = true;
+            else if (r.State == RepairState.Ready) elev = false;
+            recheck();
+        }
+        var (text, tone) = Say(p == Conn ? Part.Conn : Part.Exec, r.State);
+        p.End(r, text, tone);
+        Touch();
+    }
+
+    /// <summary>What an outcome means to the user. Only Ready (the probe answered) is worded as working.</summary>
+    public static (string Text, Tone Tone) Say(Part p, RepairState s) => s switch
+    {
+        RepairState.Ready => (p == Part.Conn ? Copy.Fix.ConnReady : Copy.Fix.ExecReady, Tone.On),
+        RepairState.Started => (Copy.Fix.Started, Tone.Wait),
+        RepairState.Cancelled => (Copy.Fix.Cancelled, Tone.Off),
+        RepairState.NeedsElevation => (Copy.Fix.NeedsElev, Tone.Wait),
+        RepairState.NotOwned => (Copy.Fix.NotOwned, Tone.Bad),
+        _ => (Copy.Fix.Failed, Tone.Bad),
+    };
+
+    /// <summary>Re-reads state after a status, gate or language change. A component seen ready clears its elevated fallback.</summary>
+    public void Touch()
+    {
+        if (main.GateOk) elev = false;
+        Raise(string.Empty);
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    public void Relabel() { Restart.Relabel(); Touch(); }
+
+    /// <summary>Offline self-test seam: swaps the backend for local fakes so no task, broker or UAC prompt is ever touched.</summary>
+    public void Seed(Run broker, Run exec, Func<bool> owns) { this.broker = broker; this.exec = exec; this.owns = owns; elev = false; Touch(); }
+}
+
 public sealed class MainVm : Bindable
 {
     readonly Monitor monitor;
@@ -313,7 +453,13 @@ public sealed class MainVm : Bindable
         RevokeAll = new Confirm(() => Copy.Header.RevokeAll, () => Copy.Header.ConfirmAll, RevokeEvery, () => Online && ActiveCount > 0);
         Retry = new Relay(monitor.Retry, () => !Online);
         Recheck = new Relay(coord.Retry, () => !Ready);
+        Fix = new FixVm(this, r => monitor.RecoverAsync(r), e => Recovery.ExecutorAsync(e), () => monitor.Owns, coord.Retry);
     }
+
+    /// <summary>Repair window model for the connection and the executor. Reachable offline, with or without a selected request.</summary>
+    public FixVm Fix { get; }
+    public string ConnSpoken => string.Format(Copy.Fix.Spoken, ConnTitle);
+    public string GateSpoken => string.Format(Copy.Fix.Spoken, GateTitle);
 
     public ObservableCollection<GrantVm> Requests { get; } = [];
     public ObservableCollection<GrantVm> Access { get; } = [];
@@ -340,6 +486,8 @@ public sealed class MainVm : Bindable
         var was = gate;
         gate = g;
         Raise(nameof(Gate)); Raise(nameof(Ready)); Raise(nameof(GateOk)); Raise(nameof(GateBad)); Raise(nameof(GateTitle)); Raise(nameof(GateTone)); Raise(nameof(GateBody)); Raise(nameof(GateAt)); Raise(nameof(GateTip));
+        Raise(nameof(GateSpoken));
+        Fix.Touch();
         // Only the checked-at time changes on a steady poll; rebind the detail pane when the state itself moves.
         if (was.Gate != g.Gate || was.Detail != g.Detail) { foreach (var r in Requests.Concat(Access)) r.Touch(); CommandManager.InvalidateRequerySuggested(); }
         else if (GateBad) selReq?.Touch();
@@ -419,6 +567,7 @@ public sealed class MainVm : Bindable
             }
         }
         Raise(string.Empty);
+        Fix.Touch();
     }
 
     static void Sync<T, TVm>(ObservableCollection<TVm> col, IEnumerable<T> src, Func<T, string> key, Func<T, TVm> make, Action<TVm, T> update) where TVm : class
@@ -470,6 +619,7 @@ public sealed class MainVm : Bindable
         RevokeAll.Relabel();
         foreach (var g in Requests.Concat(Access)) { g.Deny.Relabel(); g.Revoke.Relabel(); g.Touch(); }
         foreach (var t in Tasks) { t.Cancel.Relabel(); t.Touch(); }
+        Fix.Relabel();
         Raise(string.Empty);
     }
 

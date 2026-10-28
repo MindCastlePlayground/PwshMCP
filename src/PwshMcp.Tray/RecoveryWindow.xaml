@@ -1,0 +1,116 @@
+<Window x:Class="PwshMcp.Tray.RecoveryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:t="clr-namespace:PwshMcp.Tray"
+        Title="{x:Static t:Copy+Fix.Title}" Width="520" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        Background="{DynamicResource {x:Static t:K.Panel}}" FontFamily="{DynamicResource {x:Static t:K.UiFont}}"
+        Foreground="{DynamicResource {x:Static t:K.Ink}}">
+  <!--
+    Two components, one structure: name + live chip, what it is, what is wrong now, one primary action, the checked result.
+    The connection never borrows the executor's words and vice versa. The only shield here is the explicit elevated fallback,
+    and it appears only after the backend says the scheduled task is missing or refused. Diagnostics stay collapsed and copyable.
+  -->
+  <StackPanel>
+    <StackPanel Margin="24,18,24,12">
+      <StackPanel Orientation="Horizontal">
+        <Path Data="{StaticResource {x:Static t:K.Mark}}" Fill="{DynamicResource {x:Static t:K.Accent}}" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center"/>
+        <TextBlock Margin="10,0,0,0" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" Text="{x:Static t:Copy+Fix.Title}"/>
+      </StackPanel>
+      <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,8,0,0" TextWrapping="Wrap" Text="{x:Static t:Copy+Fix.Intro}"/>
+    </StackPanel>
+
+    <!-- Local connection -->
+    <Border x:Name="connPart" Style="{StaticResource {x:Static t:Rk.Part}}" AutomationProperties.Name="{x:Static t:Copy+Fix.ConnHead}">
+      <StackPanel>
+        <DockPanel>
+          <t:Chip DockPanel.Dock="Right" Text="{Binding ConnTitle}" Tone="{Binding ConnTone}"/>
+          <TextBlock FontSize="14.5" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" Text="{x:Static t:Copy+Fix.ConnHead}"/>
+        </DockPanel>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" Text="{x:Static t:Copy+Fix.ConnWhat}"/>
+        <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,10,0,0" FontSize="13.5" LineHeight="20" Text="{Binding ConnBody}"/>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{x:Static t:Copy+Fix.Other}"
+                   Visibility="{Binding Other, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+        <WrapPanel Margin="0,12,0,0">
+          <Button x:Name="reconnect" Style="{StaticResource {x:Static t:K.Primary}}" Margin="0,0,10,6" Command="{Binding Reconnect}"
+                  Visibility="{Binding ShowReconnect, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <StackPanel Orientation="Horizontal">
+              <!-- Visibility sits on a wrapper: a ContentPresenter takes its Content as DataContext. No shield at rest, only the spinner. -->
+              <Border Margin="0,0,8,0" Visibility="{Binding ConnRunning, Converter={StaticResource {x:Static t:K.Vis}}}">
+                <ContentPresenter Content="{Binding ConnRunning}" ContentTemplate="{StaticResource {x:Static t:K.BusyTpl}}"/>
+              </Border>
+              <AccessText Text="{Binding ReconnectText}"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="restart" Style="{StaticResource {x:Static t:K.Danger}}" Margin="0,0,10,6" Command="{Binding Restart.Click}" Tag="{Binding Restart.Tag}"
+                  Visibility="{Binding Owns, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <StackPanel Orientation="Horizontal">
+              <Border Margin="0,0,8,0" Visibility="{Binding Restarting, Converter={StaticResource {x:Static t:K.Vis}}}">
+                <ContentPresenter Content="{Binding Restarting}" ContentTemplate="{StaticResource {x:Static t:K.BusyTpl}}"/>
+              </Border>
+              <AccessText Text="{Binding RestartText}"/>
+            </StackPanel>
+          </Button>
+        </WrapPanel>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" TextWrapping="Wrap" Text="{Binding RestartWarn}"
+                   Visibility="{Binding Owns, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+        <TextBlock Style="{StaticResource {x:Static t:Rk.Result}}" Text="{Binding Conn.Note}" Tag="{Binding Conn.Tone}"/>
+      </StackPanel>
+    </Border>
+
+    <!-- Admin executor -->
+    <Border x:Name="execPart" Style="{StaticResource {x:Static t:Rk.Part}}" AutomationProperties.Name="{x:Static t:Copy+Fix.ExecHead}">
+      <StackPanel>
+        <DockPanel>
+          <t:Chip DockPanel.Dock="Right" Text="{Binding GateTitle}" Tone="{Binding GateTone}"/>
+          <TextBlock FontSize="14.5" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" Text="{x:Static t:Copy+Fix.ExecHead}"/>
+        </DockPanel>
+        <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" Text="{x:Static t:Copy+Fix.ExecWhat}"/>
+        <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,10,0,0" FontSize="13.5" LineHeight="20" Text="{Binding ExecBody}"
+                   Visibility="{Binding ShowBody, Converter={StaticResource {x:Static t:K.Vis}}}"/>
+        <WrapPanel Margin="0,12,0,0" Visibility="{Binding ShowStart, Converter={StaticResource {x:Static t:K.Vis}}}">
+          <Button x:Name="start" Style="{StaticResource {x:Static t:K.Primary}}" Margin="0,0,10,0" Command="{Binding Start}">
+            <StackPanel Orientation="Horizontal">
+              <Border Margin="0,0,8,0" Visibility="{Binding Starting, Converter={StaticResource {x:Static t:K.Vis}}}">
+                <ContentPresenter Content="{Binding Starting}" ContentTemplate="{StaticResource {x:Static t:K.BusyTpl}}"/>
+              </Border>
+              <AccessText Text="{Binding StartText}"/>
+            </StackPanel>
+          </Button>
+        </WrapPanel>
+        <TextBlock Style="{StaticResource {x:Static t:Rk.Result}}" Text="{Binding Exec.Note}" Tag="{Binding Exec.Tone}"/>
+
+        <!-- Explicit fallback: same amber card as the request's blocked state; the shield is the Windows prompt it will raise. -->
+        <Border x:Name="elevCard" Style="{StaticResource {x:Static t:K.Blocked}}" Margin="0,12,0,0" Padding="16,12,16,14"
+                Visibility="{Binding ShowElev, Converter={StaticResource {x:Static t:K.Vis}}}">
+          <StackPanel>
+            <StackPanel Orientation="Horizontal">
+              <Path Data="{StaticResource {x:Static t:K.Shield}}" Fill="{DynamicResource {x:Static t:K.Amber}}" Width="13" Height="15" Stretch="Uniform" VerticalAlignment="Center"/>
+              <TextBlock Margin="9,0,0,0" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Text="{x:Static t:Copy+Fix.ElevHead}"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,6,0,0" FontSize="13" LineHeight="19" Text="{x:Static t:Copy+Fix.ElevBody}"/>
+            <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" Text="{x:Static t:Copy+Fix.ElevNote}"/>
+            <Button x:Name="elevate" Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,10,0,0" HorizontalAlignment="Left" Command="{Binding Elevate}">
+              <StackPanel Orientation="Horizontal">
+                <ContentPresenter Content="{Binding Elevating}" ContentTemplate="{StaticResource {x:Static t:K.BusyTpl}}" Margin="0,0,8,0"/>
+                <AccessText Text="{Binding ElevText}"/>
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <!-- Diagnostics and close -->
+    <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="24,4,24,14">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Expander x:Name="diag" Style="{StaticResource {x:Static t:K.Diag}}" Margin="0,10,16,0" Header="{x:Static t:Copy+Diag.Head}">
+          <ItemsControl ItemsSource="{Binding Diag}" ItemTemplate="{StaticResource {x:Static t:K.Facts}}" Grid.IsSharedSizeScope="True" Focusable="False"/>
+        </Expander>
+        <Button Grid.Column="1" Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,10,0,0" VerticalAlignment="Top" IsCancel="True"
+                Content="{x:Static t:Copy+Fix.Close}" Click="OnClose"/>
+      </Grid>
+    </Border>
+  </StackPanel>
+</Window>

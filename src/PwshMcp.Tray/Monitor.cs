@@ -24,7 +24,15 @@ public sealed class Monitor : IDisposable
 
     public Monitor(string? backend, Action<Status> publish) { this.backend = backend; this.publish = publish; }
 
-    public bool Owns => owned is { HasExited: false };
+    public bool Owns
+    {
+        get
+        {
+            // The polling loop can dispose a stopped process while the UI reads ownership.
+            try { return owned is { HasExited: false }; }
+            catch (InvalidOperationException) { return false; }
+        }
+    }
     public Status Current { get; private set; } = new(Conn.Connecting, null, null, Copy.Conn.Connecting, false, false);
 
     public void Start() => _ = Task.Run(Loop);

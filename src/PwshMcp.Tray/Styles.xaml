@@ -316,6 +316,60 @@
     <Setter Property="Background" Value="{DynamicResource {x:Static t:K.AmberSoft}}"/>
   </Style>
 
+  <!-- Header status chip as a button: the chip itself is the content; a hover veil and a small chevron say it opens something. -->
+  <Style x:Key="{x:Static t:Rk.ChipBtn}" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Focusable" Value="True"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource pm.focusVisual}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="bg" CornerRadius="7" Padding="2,2,5,2" Background="Transparent" SnapsToDevicePixels="True">
+            <StackPanel Orientation="Horizontal">
+              <ContentPresenter VerticalAlignment="Center"/>
+              <Path x:Name="chev" Data="M0,0 L3.5,3.5 L7,0" StrokeThickness="1.4" Width="8" Height="5" Margin="5,1,0,0" VerticalAlignment="Center"
+                    Stroke="{TemplateBinding Foreground}" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.7"/>
+            </StackPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.Hover}}"/>
+              <Setter TargetName="chev" Property="Opacity" Value="1"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.Press}}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Repair outcome line: the colour follows the checked result (Tag = Tone); the words always say it too. -->
+  <Style x:Key="{x:Static t:Rk.Result}" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="LineHeight" Value="19"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="Margin" Value="0,8,0,0"/>
+    <Setter Property="AutomationProperties.LiveSetting" Value="Polite"/>
+    <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+    <Style.Triggers>
+      <Trigger Property="Tag" Value="{x:Static t:Tone.On}"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Green}}"/></Trigger>
+      <Trigger Property="Tag" Value="{x:Static t:Tone.Wait}"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Amber}}"/></Trigger>
+      <Trigger Property="Tag" Value="{x:Static t:Tone.Bad}"><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Red}}"/></Trigger>
+      <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- One repairable component in the repair window: a hairline above, the same inner rhythm as the detail pane. -->
+  <Style x:Key="{x:Static t:Rk.Part}" TargetType="Border">
+    <Setter Property="Padding" Value="24,14,24,16"/>
+    <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Line}}"/>
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+
   <!-- Button glyph: shield at rest, a turning arc while the exchange is in flight. Content is the Sending flag. -->
   <DataTemplate x:Key="{x:Static t:K.BusyTpl}">
     <Grid Width="14" Height="14">

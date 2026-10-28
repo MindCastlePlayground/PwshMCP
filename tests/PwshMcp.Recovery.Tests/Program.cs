@@ -24,6 +24,7 @@ internal static class Program
             if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException(Text.Windows);
             if (args.Length == 2 && args[0] == "--send-status") return await SendStatus(args[1]);
             await BusyPipeIsRecoverable();
+            await ClosedStreamIsContained();
             await ExitedPeerDoesNotBreakServe();
             Console.WriteLine("PASS: an exited status client does not fault its serving call; the next status client is served. Occupied-pipe errors are classified as recoverable.");
             return 0;
@@ -33,6 +34,21 @@ internal static class Program
             Console.Error.WriteLine($"FAIL: {error.Message}");
             return 1;
         }
+    }
+
+    private static async Task ClosedStreamIsContained()
+    {
+        var type = HostType();
+        var host = Activator.CreateInstance(type, nonPublic: true)!;
+        var serve = type.GetMethod("Serve", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var exchange = type.GetMethod("Exchange", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var pipe = new NamedPipeServerStream(Text.Pipe + Guid.NewGuid().ToString("N"));
+        pipe.Dispose();
+        var failed = false;
+        try { await (Task)exchange.Invoke(host, [pipe, CancellationToken.None])!; }
+        catch (Exception) { failed = true; }
+        Check(failed, "Closed-stream fixture must fault the unguarded exchange.");
+        await (Task)serve.Invoke(host, [pipe, CancellationToken.None])!;
     }
 
     private static async Task BusyPipeIsRecoverable()

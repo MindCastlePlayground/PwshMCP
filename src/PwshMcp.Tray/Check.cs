@@ -41,7 +41,7 @@ public static class Check
             foreach (var l in new[] { Lang.Zh, Lang.En }) Windows(l, render ? dir : null);
         }
         catch (Exception e) { Note(false, Report.Layout, e.ToString()); }
-        finally { L.Current = keep; Theme.Fonts(Application.Current.Resources); }
+        finally { L.Current = keep; if (Application.Current is { } app) Theme.Fonts(app.Resources); }
         log.Add(string.Format(Report.Sum, runs, bad));
         File.WriteAllLines(Path.Combine(dir, Names.Report), log);
         return bad;
@@ -259,6 +259,7 @@ public static class Check
         Ended(vm, main, host, tag, dir);
         Scrolls(vm, main, host, tag, dir);
         Inline(vm, main, host, sent, r => reply = r, tag, dir);
+        Repairs(tag, dir);
 
         var avm = new ApproveVm("grant-pending-0001", null, false);
         var s = Snap();
@@ -578,6 +579,205 @@ public static class Check
         _ = req.Submit();
         Note(req.Sending && !req.Approve.CanExecute(null) && !req.CanPick && req.IsSignOut && sent.Count == 1, Report.Inline, $"{what} sending blocks duplicate approve and lifetime changes");
         Lay2(host, GateWidths[0], $"{what} {Report.Sent}", dir, Report.Inline, tag, $"{Report.Sent}-{GateWidths[0]}");
+    }
+
+    /// <summary>The repair window's fixed width (it does not resize), and a narrower one for large text scaling.</summary>
+    static readonly int[] FixWidths = [440, 520];
+    /// <summary>Visible action order per dialog state, from the first language run; the second must match it exactly.</summary>
+    static readonly Dictionary<string, string> Shapes = [];
+
+    static PropertyInfo Fx(string n) => typeof(Copy.Fix).GetProperty(n)!;
+
+    /// <summary>
+    /// Runs continuations inline on the check's thread. The dispatcher queue is never pumped here: it holds the application's
+    /// own shutdown callback (Run is never called), which pumping would execute.
+    /// </summary>
+    sealed class Sync : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? s) => d(s);
+        public override void Send(SendOrPostCallback d, object? s) => d(s);
+    }
+
+    /// <summary>What a bound button would show once WPF re-queries it (that re-query is itself a dispatcher post).</summary>
+    static bool Live(Button b) => b.Command?.CanExecute(b.CommandParameter) == true;
+
+    static Button? Btn(DependencyObject d, string id) => Find<Button>(d, b => AutomationProperties.GetAutomationId(b) == id && Shown(b));
+
+    /// <summary>
+    /// Repair window against local fakes: opened only by clicks (header chips, Repair, the blocked card, tray menu), nothing runs from
+    /// polling, busy labels, both components down at once, the shield fallback only after NeedsElevation, and no outcome but Ready
+    /// worded as working. The fakes stand in for the scheduled task, the broker and RunAs, so no process, task or prompt is touched.
+    /// </summary>
+    static void Repairs(string tag, string? dir)
+    {
+        // No dispatcher loop runs here, so without a context the fakes' continuations would land on the thread pool.
+        var ctx = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new Sync());
+        try { Fixes(tag, dir); }
+        finally { SynchronizationContext.SetSynchronizationContext(ctx); }
+    }
+
+    static void Fixes(string tag, string? dir)
+    {
+        var what = $"{Report.Repair} {tag}";
+        MainVm? vm = null;
+        var coord = new Coord(g => vm?.Apply(g), (_, _) => Task.FromResult(new AdminResponse { Ready = true }));
+        vm = new MainVm(new Monitor(null, _ => { }), coord);
+        var main = new MainWindow(vm);
+        var shown = 0;
+        main.ShowFix = _ => shown++;
+        var host = Detach(main, K.Ground);
+        var fix = vm.Fix;
+
+        List<bool> bc = [], ec = [];
+        Task<RepairResult> ba = Task.FromResult(new RepairResult(RepairState.Ready)), ea = ba;
+        var owns = false;
+        fix.Seed(b => { bc.Add(b); return ba; }, e => { ec.Add(e); return ea; }, () => owns);
+        void Both() { vm.Seed(new Status(Conn.Offline, new Snapshot(), Now, Copy.Gate.NoPipe, false, false), Tab.Requests); vm.Seed(new GateInfo(Gate.Down, Copy.Gate.NoPipe, Now)); }
+
+        // Both down, nothing selected, as polling would leave it: no attempt is made by itself.
+        for (int i = 0; i < 3; i++) Both();
+        vm.SelReq = null;
+        Note(bc.Count == 0 && ec.Count == 0 && shown == 0 && main.Fix is null, Report.Repair, $"{what} polling both-down state starts nothing and opens nothing");
+        Note(fix.Worst == Part.Conn && fix.Reconnect.CanExecute(null) && fix.Start.CanExecute(null) && !fix.Elevate.CanExecute(null) && !fix.ShowElev
+             && !fix.Owns && !fix.Restart.Click.CanExecute(null), Report.Both, $"{what} both down: reconnect and start offered, no shield, no restart when the broker is not ours");
+        // Both header chips are whole buttons at every width: they are the header's way into repair.
+        void Chips(string state)
+        {
+            foreach (var w in GateWidths)
+            {
+                Lay(host, w, MainHeight, $"{what} {state} main {w}px", dir, Report.Repair, tag, $"{state}-main-{w}");
+                var cb = Btn(host, Names.ConnBtn); var gb = Btn(host, Names.GateBtn);
+                var lane = cb is null ? null : Up<DockPanel>(cb);
+                Note(cb is not null && gb is not null && lane is not null && Box(gb, host).Right <= Box(lane, host).Right + 0.5 && Box(cb, host).Right <= Box(gb, host).Left + 0.5,
+                    Report.Clip, $"{what} {state} {w}px: both status chips whole (executor chip ends {(gb is null ? 0 : Box(gb, host).Right):0}, lane ends {(lane is null ? 0 : Box(lane, host).Right):0})");
+            }
+        }
+        Chips(Report.Both);
+
+        // Every entry point opens the same window, aimed at the right part, without running anything.
+        Btn(host, Names.ConnBtn)?.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        var win = main.Fix;
+        Note(win is not null && shown == 1 && win.Cued == Part.Conn, Report.Repair, $"{what} connection chip (no request selected, offline) opens on the connection");
+        Btn(host, Names.GateBtn)?.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Note(ReferenceEquals(main.Fix, win) && shown == 1 && win!.Cued == Part.Exec, Report.Repair, $"{what} executor chip re-aims the open window at the executor");
+        fix.Ask(fix.Worst);
+        Note(win!.Cued == Part.Conn && bc.Count == 0 && ec.Count == 0, Report.Repair, $"{what} tray menu path opens on the worst part (connection); opening ran nothing");
+
+        // The request's executor-down block links to the same window.
+        vm.Seed(new Status(Conn.Online, Snap(), Now, "", true, true), Tab.Requests);
+        vm.SelReq = vm.Requests.FirstOrDefault();
+        vm.Seed(new GateInfo(Gate.Down, Copy.Gate.NoPipe, Now));
+        main.detail.BeginAnimation(UIElement.OpacityProperty, null);
+        main.rise.BeginAnimation(TranslateTransform.YProperty, null);
+        Chips(Report.Down);
+        Lay(host, GateWidths[0], MainHeight, $"{what} blocked", null, Report.Repair, tag, "");
+        win.Aim(Part.Conn);
+        var link = Btn(host, Names.FixExec);
+        link?.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Note(link is not null && win.Cued == Part.Exec && ReferenceEquals(main.Fix, win) && fix.Worst == Part.Exec && !fix.Reconnect.CanExecute(null),
+            Report.Repair, $"{what} blocked request's Fix executor opens the executor part; reconnect idle while online");
+
+        var dh = Detach(win, K.Panel);
+        void Clean() { win.Box(Part.Conn).Background = null; win.Box(Part.Exec).Background = null; }
+        int Fit(int w) { dh.Measure(new Size(w, double.PositiveInfinity)); return (int)Math.Ceiling(dh.DesiredSize.Height); }
+        void Dialog(string state, PropertyInfo[] copy)
+        {
+            Clean();
+            foreach (var w in FixWidths)
+            {
+                var h = Fit(w);
+                Lay(dh, w, h, $"{what} {Report.Dialog} {state} {w}px", dir, Report.Dialog, tag, $"{state}-{w}");
+                // Height only at the real (fixed) width; the narrow pass is a clipping check for large text.
+                if (w == FixWidths[^1]) Note(h <= MainHeight, Report.Dialog, $"{what} {Report.Dialog} {state} {w}px fits a {MainHeight}px screen ({h}px)");
+            }
+            Shared(dh, $"{what} {Report.Dialog} {state}", copy);
+            // The shield means "Windows will ask": only the explicit fallback may show one, and only while it is offered.
+            var shield = Application.Current.FindResource(K.Shield);
+            var shields = All<System.Windows.Shapes.Path>(dh).Where(p => p.Data == shield && Shown(p) && Up<Button>(p) is not null).Select(p => Up<Button>(p)!.Name).ToList();
+            Note(shields.All(n => n == win.elevate.Name) && shields.Count == (fix.ShowElev && !fix.Elevating ? 1 : 0), Report.Elev,
+                $"{what} {Report.Dialog} {state}: shield only on the elevated fallback ({string.Join(",", shields)})");
+            var order = string.Join(",", All<Button>(dh).Where(Shown).OrderBy(b => Box(b, dh).Top).ThenBy(b => Box(b, dh).Left).Select(b => Fmt.Or(b.Name, "close")));
+            if (Shapes.TryGetValue(state, out var was)) Note(was == order, Report.Dialog, $"{what} {Report.Dialog} {state}: same actions in the same place as the other language ({order})");
+            else Shapes[state] = order;
+            // Over the main window at the required widths: the dialog's own size never depends on the main window.
+            foreach (var w in GateWidths)
+            {
+                Lay(host, w, MainHeight, $"{what} {state} under {w}px", null, Report.Dialog, tag, "");
+                var dw = FixWidths[1]; var h = Fit(dw);
+                Lay(dh, dw, h, $"{what} {Report.Dialog} {state} over {w}px", null, Report.Dialog, tag, "");
+                Note(dw <= w && h <= MainHeight, Report.Dialog, $"{what} {Report.Dialog} {state} centred over the {w}px window");
+                if (dir is null) continue;
+                var dv = new DrawingVisual();
+                using (var dc = dv.RenderOpen())
+                {
+                    dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(0x55, 0, 0, 0)), null, new Rect(0, 0, w, MainHeight));
+                    dc.DrawRectangle(new VisualBrush(dh) { Stretch = Stretch.None }, null, new Rect((w - dw) / 2.0, Math.Max(0, (MainHeight - h) / 2.0), dw, h));
+                }
+                Save([host, dv], w, MainHeight, Path.Combine(dir, string.Format(Report.Name, Report.Dialog, tag, $"{state}-over-{w}", Names.PngExt)));
+            }
+        }
+
+        // Both down in the dialog.
+        Both();
+        Dialog(Report.Both, [Fx(nameof(Copy.Fix.ConnHead)), Fx(nameof(Copy.Fix.ExecHead)), Dia(nameof(Copy.Diag.Head))]);
+        Note(win.reconnect.Visibility == Visibility.Visible && win.restart.Visibility != Visibility.Visible && Live(win.start) && Live(win.reconnect) &&win.elevCard.Visibility != Visibility.Visible,
+            Report.Both, $"{what} dialog both down: reconnect + start, restart hidden (not owned), no shield card");
+
+        // Busy: held fakes; each part busy on its own, a second click is refused.
+        var hold = new TaskCompletionSource<RepairResult>();
+        ea = hold.Task;
+        fix.Start.Execute(null);
+        fix.Start.Execute(null);
+        Note(ec.Count == 1 && !ec[0] && fix.Starting && fix.StartText == Copy.Fix.Starting && !fix.Start.CanExecute(null) && fix.Reconnect.CanExecute(null) && !fix.ShowElev,
+            Report.Busy, $"{what} starting: \"{fix.StartText}\", one scheduled-task attempt, connection still repairable");
+        var bh = new TaskCompletionSource<RepairResult>();
+        ba = bh.Task;
+        fix.Reconnect.Execute(null);
+        Note(bc.Count == 1 && !bc[0] && fix.ConnRunning && fix.ReconnectText == Copy.Fix.Reconnecting && !fix.Reconnect.CanExecute(null), Report.Busy, $"{what} reconnecting: \"{fix.ReconnectText}\", disabled while working");
+        Dialog(Report.Busy, [Fx(nameof(Copy.Fix.ConnHead)), Fx(nameof(Copy.Fix.ExecHead))]);
+        Note(!Live(win.start) && !Live(win.reconnect) && win.start.Visibility == Visibility.Visible
+             && new[] { Copy.Fix.Starting, Copy.Fix.Reconnecting }.All(s => Texts(dh).Contains(s.Replace("_", ""))),
+            Report.Busy, $"{what} dialog: busy labels shown in place, both buttons bound to refusing commands");
+
+        // Task missing or refused: the shield fallback appears, but nothing elevated runs until its own click.
+        hold.SetResult(new RepairResult(RepairState.NeedsElevation, "task missing"));
+        bh.SetResult(new RepairResult(RepairState.Failed, "pipe busy"));
+        Note(!fix.Exec.Busy && fix.ShowElev && fix.Elevate.CanExecute(null) && ec.Count == 1 && fix.Exec.Note == Copy.Fix.NeedsElev && fix.StartText == Copy.Fix.Start,
+            Report.Elev, $"{what} NeedsElevation shows the shield fallback without invoking it");
+        Note(!fix.Conn.Busy && fix.Conn.Note == Copy.Fix.Failed && fix.Conn.Tone == Tone.Bad && fix.Diag.Any(d => d.Value == "Failed: pipe busy"),
+            Report.Repair, $"{what} failed reconnect: plain result, backend detail only in diagnostics");
+        Dialog(Report.Elev, [Fx(nameof(Copy.Fix.ElevHead)), Fx(nameof(Copy.Fix.ExecHead)), Dia(nameof(Copy.Diag.Head))]);
+        Note(win.elevCard.Visibility == Visibility.Visible && Live(win.elevate), Report.Elev, $"{what} dialog shows the shield card");
+
+        // Elevated run only from its button; outcomes other than Ready are never worded as working.
+        foreach (var (s, text) in new[] { (RepairState.Cancelled, Copy.Fix.Cancelled), (RepairState.Started, Copy.Fix.Started), (RepairState.Failed, Copy.Fix.Failed) })
+        {
+            ea = Task.FromResult(new RepairResult(s));
+            fix.Elevate.Execute(null);
+                Note(ec.Last() && fix.Exec.Note == text && text != Copy.Fix.ExecReady && fix.ShowElev, Report.Elev, $"{what} elevated {s}: \"{text}\", fallback kept");
+        }
+        ea = Task.FromResult(new RepairResult(RepairState.Started));
+        fix.Start.Execute(null);
+        Note(!ec.Last() && fix.Exec.Note == Copy.Fix.Started && fix.Exec.Tone == Tone.Wait, Report.Repair, $"{what} started-but-unprobed is not called ready");
+        ea = Task.FromResult(new RepairResult(RepairState.Ready));
+        fix.Start.Execute(null);
+        Note(fix.Exec.Note == Copy.Fix.ExecReady && fix.Exec.Tone == Tone.On && !fix.ShowElev && ec.Count(e => e) == 3, Report.Repair, $"{what} probe-ready result; shield fallback cleared; elevated ran exactly 3 times, all from clicks");
+
+        // Restart only for an owned broker, behind a second click.
+        owns = true;
+        vm.Seed(new Status(Conn.Online, Snap(), Now, "", true, true), Tab.Requests);
+        bc.Clear();
+        ba = Task.FromResult(new RepairResult(RepairState.NotOwned));
+        fix.Restart.Click.Execute(null);
+        Note(bc.Count == 0 && fix.Restart.Tag == Names.Armed && fix.RestartText == Copy.Fix.ConfirmRestart, Report.Repair, $"{what} restart arms on the first click, runs nothing");
+        Dialog(Report.Repair, [Fx(nameof(Copy.Fix.ConnHead)), Fx(nameof(Copy.Fix.ExecHead))]);
+        Note(win.restart.Visibility == Visibility.Visible && Texts(dh).Contains(fix.RestartWarn), Report.Repair, $"{what} owned broker: restart and its warning shown");
+        fix.Restart.Click.Execute(null);
+        Note(bc.Count == 1 && bc[0] && fix.Conn.Note == Copy.Fix.NotOwned, Report.Repair, $"{what} confirmed restart asks to restart; NotOwned reported");
+
+        main.Release();
+        Note(main.Fix is null && fix.Reopen == false, Report.Repair, $"{what} retiring the main window takes the never-shown repair window down");
     }
 
     static Button? Anchor(Border host) => Find<Button>(host, b => AutomationProperties.GetAutomationId(b) == Names.LifeBtn);

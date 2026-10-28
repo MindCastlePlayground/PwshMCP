@@ -41,3 +41,4 @@
 - 2026-10-28 实机验收：安装完成但任务退出 1，协调器管道连接超时；已有授权 MCP 诊断得到 IOException: 客户端没有所需的特权。原因是整份 SACL 创建要求额外安全特权，改为仅设置 mandatory label（LABEL_SECURITY_INFORMATION / WRITE_OWNER）。只读代码图文件搜索无匹配返回 1；一次故障记录补丁上下文不存在导致整份补丁未应用，核对后重做。
 - 2026-10-28：71c8fbe 首次推送遇 GitHub SSL_ERROR_SYSCALL，单次重试成功；修复构建与安装后的真实协调器测试通过。
 - 2026-10-28 晚间实机批准：requires_user_elevation；只读进程令牌证实协调器 Elevated=1。Peer.Read 在原生 RunAsClient 内访问 WindowsIdentity.Name，触发 .NET RunImpersonated 的 AsyncLocal 捕获，后续 await 恢复普通客户端令牌。修复为回调内只捕获令牌，退出模拟后读取身份字段。读取误猜 Store.cs 路径失败后，通过 rg --files 找到 StateStore.cs，后续不猜路径。
+- 2026-10-28 有效期弹出 UI：Claude Opus 5.5/CCTQ 返回 524 origin_response_timeout，result.is_error=true、CLI 退出 1，未产生 UI 改动；服务要求至少退避 120 秒后重试，不替换模型或并发重启。

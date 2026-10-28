@@ -42,3 +42,4 @@
 - 2026-10-28：71c8fbe 首次推送遇 GitHub SSL_ERROR_SYSCALL，单次重试成功；修复构建与安装后的真实协调器测试通过。
 - 2026-10-28 晚间实机批准：requires_user_elevation；只读进程令牌证实协调器 Elevated=1。Peer.Read 在原生 RunAsClient 内访问 WindowsIdentity.Name，触发 .NET RunImpersonated 的 AsyncLocal 捕获，后续 await 恢复普通客户端令牌。修复为回调内只捕获令牌，退出模拟后读取身份字段。读取误猜 Store.cs 路径失败后，通过 rg --files 找到 StateStore.cs，后续不猜路径。
 - 2026-10-28 有效期弹出 UI：Claude Opus 5.5/CCTQ 返回 524 origin_response_timeout，result.is_error=true、CLI 退出 1，未产生 UI 改动；服务要求至少退避 120 秒后重试，不替换模型或并发重启。
+- 2026-10-28 Peer 回归测试：子代理默认启动仍遇 CreateProcessAsUserW 5，同范围 require_escalated 可运行；初版管道握手挂起并占用构建输出，停止对应测试进程后改为先启动服务端读取，并加 10 秒连接超时。最终当前实现与旧逻辑对照均通过，细节见 tests/PwshMcp.Peer.Tests/NOTES.md。

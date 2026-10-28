@@ -51,3 +51,4 @@
 - 2026-10-29: diagnostic read included absent Tray/Runtime.cs and returned exit 1 despite suppressed output. Use rg --files/Test-Path before optional reads; no runtime action failed.
 - 2026-10-29: Claude JSONL summary assumed message.content always contains block objects. Some events use strings; filter for dict blocks before accessing tool fields.
 - 2026-10-29: optional source read assumed Shared/AdminNames.cs existed; constants are grouped elsewhere. Avoid guessed source filenames; enumerate paths before reading.
+- 2026-10-29: packaging verification used unsupported --dir, and an optional Models.cs search guessed a missing file. Tray checks accept the output directory directly after --self-test; locate Args with a directory-scoped rg search.

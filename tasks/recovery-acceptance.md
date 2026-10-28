@@ -31,4 +31,5 @@
 
 - Final Claude UI correction passed 815 self-test checks and 1039 render checks. Constrained 480/660px views include expanded diagnostics and a long backend error; scrolling keeps controls reachable. Chinese and English renders were inspected.
 - Release package built successfully in `artifacts/recovery-package`. Actual installation and TaskHub acceptance still require the user to approve the concrete installation request in the installed tray.
+- The actual release package also passed all 815 offline self-tests after publication (`artifacts/recovery-package-check/ui-selftest.txt`). Installation request title: `安装离线恢复界面并接入 TaskHub`; submitted and waiting for tray approval.
 - The old installed coordinator exited again with task result 1 during development, and was restarted through its existing scheduled task without UAC. This reinforces the need to validate the replacement runtime rather than equating a restart with a permanent fix.

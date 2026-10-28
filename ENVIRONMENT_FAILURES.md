@@ -34,3 +34,4 @@
 - 2026-10-28：apply_patch 同一补丁中删除并新增同一路径被拒绝（multiple operations target）；改为单个 Update File，原文件未被更改。
 - 2026-10-28：gh release create 的 --target 使用短 SHA 返回 HTTP 422 target_commitish invalid；改为 git rev-parse HEAD 取得完整 SHA，后续发布固定使用完整 SHA。
 - 2026-10-28 本机安装：默认沙箱首条读取仍报 CreateProcessAsUserW failed: 5；同范围 require_escalated 成功。新托盘启动被旧 artifacts/app 实例的单实例机制拦截；先核对旧 broker 无活动任务和有效授权，再关闭旧实例、启动安装版，并回读进程路径验证。
+- 2026-10-28 0.4.0：安装器/验收脚本子代理的默认沙箱读取再次失败 CreateProcessAsUserW 5，require_escalated 成功；后续委派需明确首次使用已验证通道。Claude UI 调用遇到上游 503，保留原进程等待其有界重试，不并发重启或替换模型。

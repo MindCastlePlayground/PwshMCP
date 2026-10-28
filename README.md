@@ -15,7 +15,7 @@ powershell -NoProfile -File scripts/build.ps1
 artifacts/app/PwshMcp.Tray.exe --show
 ```
 
-托盘自动绑定已有 broker；没有时启动本地 broker，不弹 UAC。Agent 请求管理员执行时，托盘图标显示待办。点击批准才开启 UAC；提权后的窗口确认客户端与授权期限，然后启动管理员执行器。
+托盘自动绑定已有 broker；没有时启动本地 broker，不弹 UAC。0.4.0 的桌面安装方式在安装时注册管理员协调器，Agent 请求管理员执行时仅改变托盘待办状态；在主窗内选择期限并批准，不再弹 UAC 或第二个批准窗口。协调器未安装/离线时显示修复提示，不自动回退提权。每条未指定 session 的命令仍使用独立进程与新环境。
 
 0.3.0 界面支持中文和 English，可在标题栏或托盘菜单切换，选择会保存。启动参数 `--language en` / `--language zh` 可指定本次语言；批准窗口沿用所选语言。切换语言不重启 Broker，也不改变授权。
 
@@ -47,7 +47,17 @@ artifacts/app/PwshMcp.Tray.exe --show
 
 任务记录最多保留 1000 条；达到上限时清理最旧的已结束记录及对应去重键，仍在运行/等待的任务不会被清理。长期任务应使用独立 `requestId`，去重保证仅限保留期间。
 
-## 服务安装（可选运行方式）
+## 桌面安装：安装时一次 UAC（推荐）
+
+在当前管理员用户的提权 PowerShell 中运行 `scripts/install-desktop.ps1 -UserSid <当前用户SID> -Source artifacts/package`。安装到受保护的 `Program Files\PwshMCP`，注册当前用户交互登录、最高权限运行的 `PwshMCP-Admin-<SID>` 计划任务。程序不保存账户密码，不以 SYSTEM 执行命令。普通托盘从同一目录启动，MCP command 也需改为该目录的 Host.exe。
+
+安装或替换特权程序需要管理员授权；日常批准和后续命令不再请求 UAC。用户必须已登录且属于管理员组，锁屏继续工作，注销结束管理员执行能力。当前授权按客户端和本次登录会话生效；客户端名称并非经过认证的模型身份，同用户恶意进程不构成此产品承诺的隔离边界。
+
+协调器只接受安装目录托盘进程的批准/恢复请求，校验真实进程路径、用户 SID 和 Windows 会话；MCP 没有批准接口。协调器启动还校验安装目录所有者、写权限和重解析点。授权撤销后不再派发新命令；已运行命令通过取消按钮单独停止。
+
+卸载桌面任务：管理员运行 `scripts/uninstall-desktop.ps1`；`-RemoveFiles` 同时删除经过路径检查的安装文件。安装器与旧 Windows 服务模式互斥。
+
+## 服务安装（兼容运行方式）
 
 先完成构建、退出本地托盘及其 broker，再由用户主动在管理员 PowerShell 中运行 `scripts/install.ps1`。安装到 Program Files，设置受保护 ACL 并创建开机服务；`-StartAtLogon` 为当前安装账号添加托盘登录启动。不同账号提权时不要使用该开关为原用户配置登录启动。
 

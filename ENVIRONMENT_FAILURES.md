@@ -39,3 +39,4 @@
 - 2026-10-28 0.4.0 UI：读取尚未产出的 UI-0.4.0.md 返回退出码 1；改为 Test-Path 后读取。Claude 的复合 Bash 渲染命令因包含 head/echo 超出允许命令而被拒绝，改为已允许的 dotnet 直接构建与运行检查；未扩大工具权限。首次渲染检查 4 项失败为离线视觉树的 IsVisible 判断问题，Claude 改为 Visibility 判断后 190 项全部通过。
 - 2026-10-28 0.4.0 安装前检查：对尚不存在的 Program Files/PwshMCP 使用 Get-Item，即使指定 SilentlyContinue 仍使组合命令退出 1；后续用 Test-Path 作为存在性判断，不把路径尚未安装记为构建失败。
 - 2026-10-28 实机验收：安装完成但任务退出 1，协调器管道连接超时；已有授权 MCP 诊断得到 IOException: 客户端没有所需的特权。原因是整份 SACL 创建要求额外安全特权，改为仅设置 mandatory label（LABEL_SECURITY_INFORMATION / WRITE_OWNER）。只读代码图文件搜索无匹配返回 1；一次故障记录补丁上下文不存在导致整份补丁未应用，核对后重做。
+- 2026-10-28：71c8fbe 首次推送遇 GitHub SSL_ERROR_SYSCALL，单次重试成功；修复构建与安装后的真实协调器测试通过。

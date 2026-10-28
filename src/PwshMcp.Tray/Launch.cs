@@ -65,9 +65,18 @@ public static class Launch
 
     public static Process Broker(string? backend)
     {
-        var psi = new ProcessStartInfo(HostPath(backend)) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = HostDir(backend) };
+        // Do not let a long-lived Broker inherit the tray supervisor's output pipes.
+        // Otherwise a supervisor waiting for EOF cannot observe that the tray exited.
+        var psi = new ProcessStartInfo(HostPath(backend))
+        {
+            UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = HostDir(backend),
+            RedirectStandardOutput = true, RedirectStandardError = true
+        };
         psi.ArgumentList.Add(Cli.Broker);
-        return Process.Start(psi) ?? throw new IOException(Copy.Err.NoResponse);
+        var process = Process.Start(psi) ?? throw new IOException(Copy.Err.NoResponse);
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        return process;
     }
 
     /// <summary>Starts the elevated worker detached from this window. Returns null on success or the failure text.</summary>

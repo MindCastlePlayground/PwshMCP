@@ -16,7 +16,7 @@ public static class Protocol
     public const string Pipe = "PwshMcp.Broker.v1";
     public const string Product = "PwshMCP";
 #endif
-    public const string Version = "0.3.0";
+    public const string Version = "0.4.0";
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) } };
 }
 public static class Ops

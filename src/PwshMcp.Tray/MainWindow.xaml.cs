@@ -67,15 +67,25 @@ public partial class MainWindow : Window
         rise.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, new DoubleAnimation(4, 0, d) { EasingFunction = ease });
     }
 
+    bool presenting;
+
     /// <summary>Brings the window forward. Only called for explicit user intent (menu, double-click, --show, second launch).</summary>
     public void Present(Tab? tab = null)
     {
         if (tab is { } t) vm.Tab = t;
-        if (!IsVisible) Show();
-        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        Activate();
-        FocusList();
-        if (vm.Fix.Reopen) { vm.Fix.Reopen = false; Repair(vm.Fix.Focus); }
+        // Show creates an HWND and can dispatch native tray messages before it returns.
+        // A nested Show would attach this visual to a second HwndTarget.
+        if (presenting || retired) return;
+        presenting = true;
+        try
+        {
+            if (!IsVisible) Show();
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            Activate();
+            FocusList();
+            if (vm.Fix.Reopen) { vm.Fix.Reopen = false; Repair(vm.Fix.Focus); }
+        }
+        finally { presenting = false; }
     }
 
     // ---- repair window: one per main window, opened only by a click (header chip, Fix executor, tray menu) ----------

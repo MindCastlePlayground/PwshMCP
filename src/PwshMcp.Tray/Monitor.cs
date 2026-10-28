@@ -32,13 +32,40 @@ public sealed class Monitor : IDisposable
     /// <summary>Re-poll now; clears a restart give-up.</summary>
     public void Retry() { retry = true; kick.Release(); }
     volatile bool retry;
+    volatile bool restart;
+    int cycles;
+    readonly SemaphoreSlim repair = new(1);
+
+    /// <summary>Retry or explicitly restart only our owned Broker. Success requires a new successful snapshot.</summary>
+    public async Task<RepairResult> RecoverAsync(bool restart = false)
+    {
+        await repair.WaitAsync();
+        try
+        {
+            if (restart && !Owns) return new(RepairState.NotOwned);
+            var before = Volatile.Read(ref cycles);
+            this.restart = restart;
+            Retry();
+            var until = DateTimeOffset.UtcNow.AddSeconds(8);
+            do
+            {
+                await Task.Delay(100);
+                if (Volatile.Read(ref cycles) > before && !this.restart && Current.Conn == Conn.Online)
+                    return new(RepairState.Ready);
+            } while (!stop.IsCancellationRequested && DateTimeOffset.UtcNow < until);
+            return new(RepairState.Failed, Current.Detail);
+        }
+        finally { repair.Release(); }
+    }
 
     async Task Loop()
     {
         while (!stop.IsCancellationRequested)
         {
+            if (restart) { StopOwned(); restart = false; }
             if (retry) { retry = false; gaveUp = false; restarts.Clear(); }
             Emit(await Tick());
+            Interlocked.Increment(ref cycles);
             try { await kick.WaitAsync(Timing.Poll, stop.Token); } catch (OperationCanceledException) { return; }
         }
     }

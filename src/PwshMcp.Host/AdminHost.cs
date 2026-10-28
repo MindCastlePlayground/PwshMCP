@@ -31,9 +31,15 @@ internal sealed class AdminHost
         {
             while (!life.IsCancellationRequested)
             {
-                using var pipe = Open();
-                await pipe.WaitForConnectionAsync(life.Token);
-                await Serve(pipe, life.Token);
+                try
+                {
+                    using var pipe = Open();
+                    await pipe.WaitForConnectionAsync(life.Token);
+                    await Serve(pipe, life.Token);
+                }
+                // A client can retain its handle briefly after the server finishes a reply.
+                // With one server instance, that is backpressure, not an executor failure.
+                catch (IOException e) when (PipeFault.IsBusy(e)) { await Task.Delay(100, life.Token); }
             }
         }
         finally
@@ -53,7 +59,7 @@ internal sealed class AdminHost
         while (!life.IsCancellationRequested)
         {
             await Task.Delay(1000, life.Token);
-            if (SessionLife.Stamp(session) != stamp) life.Cancel();
+            if (SessionLife.Stamp(session) != stamp) { RuntimeLog.Write(AdminNames.Mode, RuntimeLog.Session); life.Cancel(); }
         }
     }
 
@@ -70,6 +76,13 @@ internal sealed class AdminHost
     }
 
     async Task Serve(NamedPipeServerStream pipe, CancellationToken stop)
+    {
+        try { await Exchange(pipe, stop); }
+        // Includes stream disposal and a client exiting before its PID/token can be read.
+        catch (Exception e) when (e is not OutOfMemoryException) { RuntimeLog.Write(AdminNames.Mode, RuntimeLog.Client, e); }
+    }
+
+    async Task Exchange(NamedPipeServerStream pipe, CancellationToken stop)
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(stop); limit.CancelAfter(TimeSpan.FromSeconds(8));
         using var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);

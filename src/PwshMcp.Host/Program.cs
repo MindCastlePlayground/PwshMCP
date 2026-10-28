@@ -13,6 +13,7 @@ internal static class Program
         Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;stop.Cancel();};
         try
         {
+            if(args.FirstOrDefault() is Names.Broker or AdminNames.Mode) RuntimeLog.Write(args[0],RuntimeLog.Started);
             switch(args.FirstOrDefault())
             {
                 case Names.Broker:await new Broker().RunAsync(stop.Token);break;
@@ -28,7 +29,7 @@ internal static class Program
             return 0;
         }
         catch(OperationCanceledException){return 0;}
-        catch(Exception ex){Console.Error.WriteLine(ex.GetType().Name+": "+ex.Message);return 1;}
+        catch(Exception ex){RuntimeLog.Write(args.FirstOrDefault()??"",RuntimeLog.Fatal,ex);Console.Error.WriteLine(ex.GetType().Name+": "+ex.Message);return 1;}
     }
     private static string? Value(string[] args,string name){var i=Array.IndexOf(args,name);return i>=0&&i+1<args.Length?args[i+1]:null;}
 }

@@ -29,7 +29,9 @@ internal sealed class Broker
         // Mutex ownership is thread-affine; process lifetime owns the mutex, no async ReleaseMutex.
         while(!ct.IsCancellationRequested)
         {
-            var pipe=OpenPipe();
+            NamedPipeServerStream pipe;
+            try { pipe=OpenPipe(); }
+            catch(IOException ex) when(PipeFault.IsBusy(ex)) { await Task.Delay(100,ct);continue; }
             try {await pipe.WaitForConnectionAsync(ct); _=Serve(pipe,ct);}
             catch {pipe.Dispose(); if(ct.IsCancellationRequested)break;throw;}
         }
@@ -47,6 +49,11 @@ internal sealed class Broker
         return NamedPipeServerStreamAcl.Create(Protocol.Pipe,PipeDirection.InOut,32,PipeTransmissionMode.Byte,PipeOptions.Asynchronous,65536,65536,acl);
     }
     private async Task Serve(NamedPipeServerStream pipe,CancellationToken ct)
+    {
+        try { await Exchange(pipe,ct); }
+        catch(Exception ex) when(ex is not OutOfMemoryException) { RuntimeLog.Write(Names.Broker,RuntimeLog.Client,ex); }
+    }
+    private async Task Exchange(NamedPipeServerStream pipe,CancellationToken ct)
     {
         using(pipe)
         using(var reader=new StreamReader(pipe,Encoding.UTF8,leaveOpen:true))

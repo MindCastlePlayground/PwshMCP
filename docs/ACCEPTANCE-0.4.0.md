@@ -30,4 +30,8 @@
 - 修复后计划任务 `Running`；普通权限测试程序能读取 Ready，Approve/Resume 均返回 `admin_forbidden`。安装 Host.dll 与修复构建 SHA256 一致。
 - 已切换普通托盘、broker 和 Codex MCP 配置到 Program Files；备份原配置与快捷方式，移除旧 Startup 快捷方式，保留安装器创建的 HKCU Run。原版文件保留。
 - 实际 MCP 普通权限测试通过：3 次调用、3 个 PID、3 个环境 ID；用户环境修改和删除可见、shell 临时变量不泄漏。验收入口自身不是管理员。
-- 管理员环境验收已发起，等待用户在新版托盘内批准。重新登录自启、锁屏/注销及高 DPI 尚未实测。
+- 首次真实批准返回 `requires_user_elevation`。Windows 进程令牌检查确认管理员启动器/协调器 Elevated=1，普通 broker Elevated=0。`620efea` 修复 `Peer.Read` 在原生管道模拟期间读取 `WindowsIdentity.Name` 导致的异步身份残留：只在回调内捕获令牌，退出模拟后读取身份字段。机制参见 [.NET WindowsIdentity 实现](https://github.com/dotnet/runtime/blob/v8.0.0/src/libraries/System.Security.Principal.Windows/src/System/Security/Principal/WindowsIdentity.cs)。没有放宽普通进程的批准门槛。
+- 用户确认一次修复升级 UAC；补丁安装成功，Host.dll SHA256 为 `DC8F638563D332D9F699A32DAF2715E04717D394CA8C3596FD4A5F3E5B62AB32`。随后用户在普通托盘内批准，并明确反馈“已批准，正常”。
+- **真实管理员环境验收通过**：`installed_fresh.py --elevated` 返回 passed=true，3 条命令、3 个不同 PID、3 个不同 environmentId；每条命令均断言真实管理员身份。用户环境修改/删除可见，shell 临时变量不泄漏。后两条命令复用同一授权，无重复批准。
+- 修复后非托盘批准/恢复拒绝测试通过；重新构建独立测试通道，11 项集成检查全部通过。
+- 重新登录自启、锁屏/注销及高 DPI 尚未实测。用户后续要求有效期改为弹出选择，属于另一个 UI 修改；以上真实管理员执行证据对应弹出改造前的界面。

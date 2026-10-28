@@ -44,3 +44,5 @@
 - 2026-10-28 有效期弹出 UI：Claude Opus 5.5/CCTQ 返回 524 origin_response_timeout，result.is_error=true、CLI 退出 1，未产生 UI 改动；服务要求至少退避 120 秒后重试，不替换模型或并发重启。
 - 2026-10-28 Peer 回归测试：子代理默认启动仍遇 CreateProcessAsUserW 5，同范围 require_escalated 可运行；初版管道握手挂起并占用构建输出，停止对应测试进程后改为先启动服务端读取，并加 10 秒连接超时。最终当前实现与旧逻辑对照均通过，细节见 tests/PwshMcp.Peer.Tests/NOTES.md。
 - 2026-10-28 README 改版：搜索尚不存在的 .github 目录及误猜的 Host/FreshEnvironment.cs 报路径错误，后续先用 rg --files 确认。apply_patch 同一补丁删除再新增 README 再次被拒绝，原文件未修改；备份后拆为独立操作完成。不得再将同一路径的删除/新增放在一个补丁中。
+- 2026-10-29 TaskHub 接入：默认沙箱 CreateProcessAsUserW 5，原范围 require_escalated 重试成功。误猜 App.xaml.cs 失败后经 rg --files 定位 App.cs；TaskHub 根目录没有 AGENTS.md / .git，后续先检查存在性，不对其执行 Git 操作。
+- 2026-10-29 TaskHub 接入：rg 的路径参数含未展开 Mcp* 导致 Windows 路径语法错误，后续直接传已确认的 Mcp.cs 或使用 -g 过滤。

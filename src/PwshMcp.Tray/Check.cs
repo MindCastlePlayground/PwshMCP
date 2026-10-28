@@ -2,6 +2,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
@@ -291,24 +292,61 @@ public static class Check
         }
         var what = $"{Report.Inline} {tag}";
 
-        // Executor online: card with lifetime picks, Approve enabled.
+        // The popup seam: records open/closed instead of creating a popup window, so nothing is ever shown.
+        var open = false;
+        main.Pop = v => open = v;
+        var pick = (Style)Application.Current.FindResource(K.Pick);
+
+        // Executor online: Approve enabled; the page has no lifetime chooser of its own, only the footer link.
         Fresh(new GateInfo(Gate.Ready, "", Now));
         var req = vm.SelReq!;
         Note(req.Approve.CanExecute(null) && !req.GateBad, Report.Gate, $"{what} ready: approve enabled");
-        Shared(Lay2(host, GateWidths[0], $"{what} ready", dir, Report.Gate, tag, $"{Report.Inline}-{GateWidths[0]}"), $"{what} ready",
-            [Inl(nameof(Copy.Inline.Head)), Inl(nameof(Copy.Inline.Lasts))]);
-        // The card itself, scrolled into view the way the footer lifetime link does, at minimum and default width.
-        req.Pick(Life.FourHours);
-        foreach (var w in GateWidths)
-        {
-            Lay(host, w, MainHeight, $"{what} card {w}px", null, Report.Gate, tag, "");
-            Note(Reveal(host), Report.Layout, $"{what} card reachable by scrolling at {w}px");
-            Lay2(host, w, $"{what} card {w}px", dir, Report.Gate, tag, $"{Report.Inline}-card-{w}");
-        }
-        Reveal(host, true);
+        Shared(Lay2(host, GateWidths[0], $"{what} ready", dir, Report.Gate, tag, $"{Report.Inline}-{GateWidths[0]}"), $"{what} ready", [Inl(nameof(Copy.Inline.Head))]);
+        Note(Find<RadioButton>(host, r => r.Style == pick) is null && !Texts(host).Contains(Copy.Inline.Lasts), Report.Pop, $"{what} page carries no duplicate lifetime chooser");
+
+        // Closed until the link is used; light-dismiss, placed above its anchor.
+        var btn = Anchor(host);
+        Note(btn is { IsEnabled: true } && btn.Visibility == Visibility.Visible && !open && main.Bound is null && !main.life.StaysOpen && main.life.Placement == PlacementMode.Top,
+            Report.Pop, $"{what} closed at rest; StaysOpen=false, Placement=Top");
+        Note(!main.Press(System.Windows.Input.Key.Escape, null), Report.Pop, $"{what} Esc with the popup closed is left to the window");
+
+        // Click opens it bound to this request with the current choice checked; previews show real deadlines.
+        btn!.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Note(open && main.Bound == req && main.life.PlacementTarget == btn && main.lifeCard.DataContext == req && main.Checked()?.Tag is Life.SignOut,
+            Report.Pop, $"{what} link click opens popup on the selected request, sign-out checked");
+        Card(main, host, btn, req, $"{what} popup", dir, tag);
+
+        // Clicking a choice updates the footer label and closes; Approve still sends that choice in one click.
+        Click(main, Life.FourHours);
+        Lay(host, GateWidths[1], MainHeight, $"{what} picked", null, Report.Pop, tag, "");
+        var four = req.Until is { } u4 && Math.Abs((u4 - DateTimeOffset.Now.AddHours(4)).TotalMinutes) < 2;
+        Note(req.Life == Life.FourHours && four && !open && main.Bound is null && main.lifeCard.DataContext is null && Texts(host).Contains(req.Picked),
+            Report.Pop, $"{what} choosing 4 h closes the popup and the link reads \"{req.Picked}\"");
+        foreach (var w in MainWidths) Lay2(host, w, $"{what} picked {w}px", dir, Report.Pop, tag, $"picked-{w}");
+
+        // Reopen shows the new choice; Esc closes without changing it; Enter picks the focused choice.
+        btn = Anchor(host)!;
+        main.Open(btn);
+        Note(open && main.Checked()?.Tag is Life.FourHours, Report.Pop, $"{what} reopened popup checks the current choice");
+        Note(main.Press(System.Windows.Input.Key.Escape, null) && !open && main.Bound is null && req.Life == Life.FourHours, Report.Pop, $"{what} Esc closes, choice kept");
+        main.Open(btn);
+        var hourBtn = Find<RadioButton>(main.lifeCard, r => r.Tag is Life.OneHour);
+        Note(main.Press(System.Windows.Input.Key.Enter, hourBtn) && !open && req.Life == Life.OneHour, Report.Pop, $"{what} Enter on a focused choice picks it and closes");
+
+        // No popup outlives its request: tab switch, deselection, and window retirement all close it.
+        main.Open(btn);
+        vm.Tab = Tab.Access;
+        Note(!open && main.Bound is null, Report.Pop, $"{what} switching tab closes the popup");
+        vm.Tab = Tab.Requests; vm.SelReq = req;
+        Lay(host, GateWidths[1], MainHeight, $"{what} back", null, Report.Pop, tag, "");
+        btn = Anchor(host)!;
+        main.Open(btn);
+        vm.SelReq = null;
+        Note(!open && main.Bound is null && !main.Open(btn), Report.Pop, $"{what} deselecting closes it; a stale anchor can't reopen it");
+        vm.SelReq = req;
         req.Pick(Life.SignOut);
 
-        // Executor offline / failing checks: guidance in the same slot, Approve disabled, no fallback.
+        // Executor offline / failing checks: guidance in the same slot, Approve disabled, no fallback, no popup.
         foreach (var (g, name) in new[] { (Gate.Down, Report.Down), (Gate.Broken, Report.Broken) })
         {
             Fresh(new GateInfo(g, g == Gate.Broken ? Copy.Gate.Untrusted : Copy.Gate.NoPipe, Now));
@@ -319,18 +357,22 @@ public static class Check
                 var h = Lay2(host, w, $"{what} {name} {w}px", dir, Report.Gate, tag, $"{name}-{w}");
                 Shared(h, $"{what} {name} {w}px", [Gat(nameof(Copy.Gate.Head)), Gat(nameof(Copy.Gate.Recheck))]);
             }
+            var off = Anchor(host);
+            Note(off is not null && off.Visibility != Visibility.Visible && !main.Open(off) && !open, Report.Pop, $"{what} {name}: lifetime link hidden, popup refused");
         }
 
         // Chosen lifetime travels with Approve; a refusal keeps the request waiting and retryable in place.
         Fresh(new GateInfo(Gate.Ready, "", Now));
         req = vm.SelReq!;
-        req.Pick(Life.OneHour);
+        Lay(host, GateWidths[1], MainHeight, $"{what} again", null, Report.Pop, tag, "");
+        main.Open(Anchor(host)!);
+        Click(main, Life.OneHour);
         answer(Task.FromResult(new AdminResponse { Ok = false, Error = AdminNames.Forbidden }));
         sent.Clear();
         req.Submit().GetAwaiter().GetResult();
         var last = sent.LastOrDefault();
         var hour = last?.ExpiresAt is { } e && Math.Abs((e - DateTimeOffset.UtcNow.AddHours(1)).TotalMinutes) < 2;
-        Note(sent.Count == 1 && last!.Op == AdminOp.Approve && last.Id == req.Id && hour, Report.Inline, $"{what} approve sends Op=Approve, Id, ExpiresAt≈1h");
+        Note(sent.Count == 1 && last!.Op == AdminOp.Approve && last.Id == req.Id && hour, Report.Inline, $"{what} approve after picking 1 h in the popup sends Op=Approve, Id, ExpiresAt≈1h");
         Note(req.NoticeBad && req.IsPending && req.Approve.CanExecute(null) && req.Footer.Contains(Copy.Gate.Forbidden), Report.Inline, $"{what} refusal shown in place, still retryable");
         Lay2(host, GateWidths[0], $"{what} {Report.Failed}", dir, Report.Inline, tag, $"{Report.Failed}-{GateWidths[0]}");
 
@@ -344,29 +386,87 @@ public static class Check
         req.Submit().GetAwaiter().GetResult();
         Note(sent.Count == 1 && sent[0].ExpiresAt is null && !req.NoticeBad, Report.Inline, $"{what} until sign-out sends no ExpiresAt; Active accepted");
 
-        // In flight: button turns busy, picks and a second click are blocked.
+        // A language switch retires the window; its popup goes with it. (Release is Retire short of a real Close.)
+        Fresh(new GateInfo(Gate.Ready, "", Now));
+        Lay(host, GateWidths[1], MainHeight, $"{what} retire", null, Report.Pop, tag, "");
+        var was = main.Open(Anchor(host)!) && open;
+        main.Release();
+        Note(was && !open && main.Bound is null, Report.Pop, $"{what} retiring the window (language switch) closes the popup");
+
+        // In flight: button turns busy; an open popup closes, can't reopen, and picks plus a second click are blocked.
         Fresh(new GateInfo(Gate.Ready, "", Now));
         req = vm.SelReq!;
+        Lay(host, GateWidths[1], MainHeight, $"{what} flight", null, Report.Pop, tag, "");
+        btn = Anchor(host)!;
+        main.Open(btn);
         var hold = new TaskCompletionSource<AdminResponse>();
         answer(hold.Task);
         sent.Clear();
         _ = req.Submit();
+        Note(!open && main.Bound is null && !btn.IsEnabled && !main.Open(btn), Report.Pop, $"{what} sending closes the popup and disables the lifetime link");
         req.Pick(Life.Today);
         _ = req.Submit();
         Note(req.Sending && !req.Approve.CanExecute(null) && !req.CanPick && req.IsSignOut && sent.Count == 1, Report.Inline, $"{what} sending blocks duplicate approve and lifetime changes");
         Lay2(host, GateWidths[0], $"{what} {Report.Sent}", dir, Report.Inline, tag, $"{Report.Sent}-{GateWidths[0]}");
     }
 
-    static bool Reveal(Border host, bool back = false)
+    static Button? Anchor(Border host) => Find<Button>(host, b => AutomationProperties.GetAutomationId(b) == Names.LifeBtn);
+
+    /// <summary>Clicks a popup choice the way a pointer does: the radio checks (keeping its binding), then Click fires.</summary>
+    static void Click(MainWindow main, Life l)
     {
-        var issue = (Style)Application.Current.FindResource(K.Issue);
-        // IsVisible stays false in a never-shown tree; the template's own Visibility is what a shown window would honour.
-        var card = Find<Border>(host, b => b.Style == issue && b.Visibility == Visibility.Visible);
-        var sv = card is null ? null : Up<ScrollViewer>(card);
-        if (card is null || sv?.Content is not Visual body) return false;
-        sv.ScrollToVerticalOffset(back ? 0 : card.TransformToAncestor(body).Transform(new Point()).Y - 20);
-        host.UpdateLayout();
-        return true;
+        if (Find<RadioButton>(main.lifeCard, r => r.Tag is Life x && x == l) is not { } r) return;
+        r.SetCurrentValue(ToggleButton.IsCheckedProperty, true);
+        r.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+    }
+
+    /// <summary>
+    /// The popup's real card, lifted out of the closed Popup for one layout pass: checked alone for clipping and copy,
+    /// then composited above the footer link exactly where Placement=Top with the XAML offsets puts it. Restored afterwards.
+    /// </summary>
+    static void Card(MainWindow main, Border host, Button btn, GrantVm req, string what, string? dir, string tag)
+    {
+        var card = main.lifeCard;
+        main.life.Child = null;
+        var ph = Host(card, K.Panel);
+        ph.Background = Brushes.Transparent;
+        try
+        {
+            ph.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            int pw = (int)Math.Ceiling(ph.DesiredSize.Width), pht = (int)Math.Ceiling(ph.DesiredSize.Height);
+            Lay(ph, pw, pht, $"{what} card", null, Report.Pop, tag, "");
+            var texts = Texts(ph).ToList();
+            Shared(ph, what, [Inl(nameof(Copy.Inline.Lasts)), Inl(nameof(Copy.Inline.AtSignOut))]);
+            Note(new[] { req.HourEnd, req.FourEnd, req.TodayEnd, req.Applies }.All(texts.Contains), Report.Pop, $"{what} shows the 1 h / 4 h / end-of-day deadlines and the client-wide scope line");
+            Note(Lives.All.All(l => Find<RadioButton>(card, r => r.Tag is Life x && x == l) is not null), Report.Pop, $"{what} offers all four lifetimes");
+            foreach (var w in MainWidths)
+            {
+                Lay(host, w, MainHeight, $"{what} host {w}px", null, Report.Pop, tag, "");
+                var at = btn.TransformToAncestor(host).Transform(new Point());
+                double x = at.X + main.life.HorizontalOffset, y = at.Y + main.life.VerticalOffset - pht;
+                Note(x >= 0 && y >= 0 && x + pw <= w && at.Y + btn.ActualHeight <= MainHeight, Report.Pop,
+                    $"{what} fits inside the window above its link at {w}px (card {x:0},{y:0} {pw}×{pht}; link bottom {at.Y + btn.ActualHeight:0} of {host.ActualHeight:0})");
+                if (dir is null) continue;
+                var dv = new DrawingVisual();
+                using (var dc = dv.RenderOpen()) dc.DrawRectangle(new VisualBrush(ph) { Stretch = Stretch.None }, null, new Rect(x, y, pw, pht));
+                Save([host, dv], w, MainHeight, Path.Combine(dir, string.Format(Report.Name, Report.Pop, tag, w, Names.PngExt)));
+            }
+        }
+        finally { ph.Child = null; main.life.Child = card; }
+    }
+
+    static void Save(Visual[] vs, int w, int h, string file)
+    {
+        try
+        {
+            var bmp = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            foreach (var v in vs) bmp.Render(v);
+            var png = new PngBitmapEncoder();
+            png.Frames.Add(BitmapFrame.Create(bmp));
+            using (var f = File.Create(file)) png.Save(f);
+            Note(true, Report.Render, Path.GetFileName(file));
+        }
+        catch (Exception e) { Note(false, Report.Render, $"{file}: {e.Message}"); }
     }
 
     static T? Find<T>(DependencyObject d, Func<T, bool> ok) where T : DependencyObject

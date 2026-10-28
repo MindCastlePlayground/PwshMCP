@@ -15,7 +15,7 @@ public static class K
     public const string Primary = "pm.btnPrimary", Secondary = "pm.btnSecondary", Danger = "pm.btnDanger", Quiet = "pm.btnQuiet";
     public const string Segment = "pm.segment", Row = "pm.row", Label = "pm.label", Value = "pm.value", Title = "pm.title", Section = "pm.section", Body = "pm.body", CodeBox = "pm.codeBox", Choice = "pm.choice", Pane = "pm.pane", Vis = "pm.vis", Shield = "pm.shield", Mark = "pm.mark";
     public const string CodeTpl = "pm.tpl.code", CmdTpl = "pm.tpl.cmd", ScopeTpl = "pm.tpl.scope", DiagTpl = "pm.tpl.diag", BusyTpl = "pm.tpl.busy";
-    public const string Issue = "pm.issue", Blocked = "pm.blocked", Pick = "pm.pick";
+    public const string Issue = "pm.issue", Blocked = "pm.blocked", Pick = "pm.pick", Pop = "pm.pop";
     public const string Desc = "pm.desc", Task = "pm.task", Fact = "pm.fact", Facts = "pm.facts", Diag = "pm.diag", Ident = "pm.ident", Scope = "pm.scope", Lang = "pm.lang";
     public const string SynComment = "pm.synComment", SynStr = "pm.synStr", SynVar = "pm.synVar", SynKey = "pm.synKey", SynCmd = "pm.synCmd", SynNum = "pm.synNum", SynParam = "pm.synParam", SynType = "pm.synType";
 }

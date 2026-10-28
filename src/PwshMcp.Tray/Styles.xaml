@@ -246,34 +246,37 @@
     </Setter>
   </Style>
 
-  <!-- Inline lifetime picks: the approval-window choice, compact, wrapping so either language fits a two-column grid at minimum width. -->
+  <!-- Lifetime popup row: radio ring, choice on the first line, the deadline it means on the second. Content is a two-line StackPanel. -->
   <Style x:Key="{x:Static t:K.Pick}" TargetType="RadioButton" BasedOn="{StaticResource {x:Static t:K.Choice}}">
-    <Setter Property="FontSize" Value="13"/>
-    <Setter Property="Margin" Value="0,0,6,6"/>
+    <Setter Property="FontSize" Value="13.5"/>
+    <Setter Property="Margin" Value="0,0,0,2"/>
+    <Setter Property="GroupName" Value="pm.life"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
-          <Border x:Name="bg" CornerRadius="8" Padding="10,8" BorderThickness="1" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Background="{DynamicResource {x:Static t:K.Panel}}">
+          <Border x:Name="bg" CornerRadius="7" Padding="12,8,14,8" BorderThickness="1" BorderBrush="Transparent" Background="Transparent">
             <DockPanel>
-              <Grid Width="14" Height="14" Margin="0,0,9,0" VerticalAlignment="Center">
+              <Grid Width="14" Height="14" Margin="0,3,11,0" VerticalAlignment="Top">
                 <Ellipse x:Name="ring" Stroke="{DynamicResource {x:Static t:K.Muted}}" StrokeThickness="1.5"/>
                 <Ellipse x:Name="dot" Width="6" Height="6" Fill="{DynamicResource {x:Static t:K.Accent}}" Visibility="Collapsed"/>
               </Grid>
-              <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True">
-                <ContentPresenter.Resources><Style TargetType="AccessText"><Setter Property="TextWrapping" Value="Wrap"/></Style></ContentPresenter.Resources>
-              </ContentPresenter>
+              <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
             </DockPanel>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="bg" Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.Hover}}"/>
             </Trigger>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="bg" Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Accent}}"/>
               <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.AccentSoft}}"/>
               <Setter TargetName="ring" Property="Stroke" Value="{DynamicResource {x:Static t:K.Accent}}"/>
               <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
               <Setter Property="FontWeight" Value="SemiBold"/>
+            </Trigger>
+            <!-- Keyboard focus draws on the row itself so the ring stays legible inside the popup's tight padding. -->
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="bg" Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Focus}}"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter Property="Opacity" Value="0.55"/>
@@ -282,6 +285,19 @@
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
+    </Setter>
+  </Style>
+  <!-- Lifetime popup surface: the panel colour lifted off the footer by a soft shadow; the outer margin is room for that shadow. -->
+  <Style x:Key="{x:Static t:K.Pop}" TargetType="Border">
+    <Setter Property="Margin" Value="10"/>
+    <Setter Property="Width" Value="336"/>
+    <Setter Property="Padding" Value="6,10,6,6"/>
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Line}}"/>
+    <Setter Property="Background" Value="{DynamicResource {x:Static t:K.Panel}}"/>
+    <Setter Property="Effect">
+      <Setter.Value><DropShadowEffect BlurRadius="20" ShadowDepth="4" Direction="270" Opacity="0.32"/></Setter.Value>
     </Setter>
   </Style>
 

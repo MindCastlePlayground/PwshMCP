@@ -41,7 +41,7 @@
               </UniformGrid>
               <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource {x:Static t:K.ScopeTpl}}" Margin="0,-2,0,0"/>
 
-              <!-- The badge before it is issued: same card shape as an active grant, accent band previews the chosen lifetime. -->
+              <!-- The badge before it is issued: what approving means. How long it lasts is chosen from the footer link beside Approve. -->
               <Border Style="{StaticResource {x:Static t:K.Issue}}" Visibility="{Binding GateBad, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">
@@ -49,17 +49,6 @@
                     <TextBlock Margin="9,0,0,0" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Text="{x:Static t:Copy+Inline.Head}"/>
                   </StackPanel>
                   <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,10,0,0" FontSize="13.5" LineHeight="20" Text="{Binding Allows}"/>
-                  <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,8" Text="{x:Static t:Copy+Inline.Lasts}"/>
-                  <UniformGrid Columns="2" IsEnabled="{Binding CanPick}" KeyboardNavigation.DirectionalNavigation="Cycle">
-                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsSignOut}" Content="{x:Static t:Copy+Inline.SignOut}"/>
-                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsHour}" Content="{x:Static t:Copy+Inline.OneHour}"/>
-                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsFour}" Content="{x:Static t:Copy+Inline.FourHours}"/>
-                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsToday}" Content="{x:Static t:Copy+Inline.Today}"/>
-                  </UniformGrid>
-                  <t:Band Margin="2,8,0,10" Start="{Binding Now, Mode=OneWay}" Now="{Binding Now, Mode=OneWay}" End="{Binding Until, Mode=OneWay}" Span="{Binding LifeSpan, Mode=OneWay}"
-                          Fill="{DynamicResource {x:Static t:K.Accent}}" Track="{DynamicResource {x:Static t:K.Accent}}" Tick="{DynamicResource {x:Static t:K.Ink}}"/>
-                  <TextBlock Style="{StaticResource {x:Static t:K.Value}}" FontWeight="SemiBold" Text="{Binding LifeText}"/>
-                  <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,0" TextWrapping="Wrap" Text="{Binding LifeNote}"/>
                 </StackPanel>
               </Border>
 
@@ -121,12 +110,15 @@
         <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="32,14">
           <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <!-- Before an outcome exists, a pending request echoes its chosen lifetime beside Approve; clicking it brings the picker into view. -->
-            <Button Style="{StaticResource {x:Static t:K.Quiet}}" Margin="-10,0,16,0" HorizontalAlignment="Left" Click="OnPicked"
-                    Visibility="{Binding ShowPick, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <!-- Before an outcome exists, a pending request echoes its chosen lifetime beside Approve; clicking it opens the lifetime popup above it. -->
+            <Button Style="{StaticResource {x:Static t:K.Quiet}}" Margin="-10,0,16,0" HorizontalAlignment="Left" Click="OnPicked" IsEnabled="{Binding CanPick}"
+                    AutomationProperties.AutomationId="{x:Static t:Names.LifeBtn}" AutomationProperties.Name="{Binding Picked}" AutomationProperties.HelpText="{x:Static t:Copy+Inline.Change}"
+                    ToolTip="{x:Static t:Copy+Inline.Change}" Visibility="{Binding ShowPick, Converter={StaticResource {x:Static t:K.Vis}}}">
               <DockPanel>
-                <Path DockPanel.Dock="Right" Data="M0,0 L4,4 L8,0" StrokeThickness="1.5" Width="9" Height="5" Margin="8,1,0,0" VerticalAlignment="Center"
-                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                <Path DockPanel.Dock="Right" Data="M0,0 L4,4 L8,0" StrokeThickness="1.5" Width="9" Height="5" Margin="8,1,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+                  <Path.RenderTransform><RotateTransform/></Path.RenderTransform>
+                </Path>
                 <TextBlock FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Picked}"/>
               </DockPanel>
             </Button>
@@ -407,5 +399,36 @@
         </Grid>
       </Border>
     </Grid>
+
+    <!-- Lifetime popup: one per window, anchored above the footer link, bound to exactly one pending request while open (MainWindow.xaml.cs). -->
+    <Popup x:Name="life" StaysOpen="False" Placement="Top" AllowsTransparency="True" HorizontalOffset="-10" VerticalOffset="6" Focusable="False" Closed="OnLifeClosed">
+      <Border x:Name="lifeCard" Style="{StaticResource {x:Static t:K.Pop}}" PreviewKeyDown="OnLifeKey"
+              TextElement.FontFamily="{DynamicResource {x:Static t:K.UiFont}}" TextElement.Foreground="{DynamicResource {x:Static t:K.Ink}}"
+              KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.ControlTabNavigation="Cycle" AutomationProperties.Name="{x:Static t:Copy+Inline.Lasts}">
+        <StackPanel>
+          <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="12,0,12,6" FontWeight="SemiBold" Text="{x:Static t:Copy+Inline.Lasts}"/>
+          <StackPanel KeyboardNavigation.TabNavigation="Once" KeyboardNavigation.DirectionalNavigation="Cycle">
+            <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" Tag="{x:Static t:Life.SignOut}" IsChecked="{Binding IsSignOut, Mode=OneWay}" Click="OnLife"
+                         AutomationProperties.Name="{Binding Source={x:Static t:Copy+Inline.SignOut}, Converter={x:Static t:All.Plain}}" AutomationProperties.HelpText="{Binding SignOutEnd}">
+              <StackPanel><AccessText Text="{x:Static t:Copy+Inline.SignOut}" TextWrapping="Wrap"/><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,0" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding SignOutEnd}"/></StackPanel>
+            </RadioButton>
+            <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" Tag="{x:Static t:Life.OneHour}" IsChecked="{Binding IsHour, Mode=OneWay}" Click="OnLife"
+                         AutomationProperties.Name="{Binding Source={x:Static t:Copy+Inline.OneHour}, Converter={x:Static t:All.Plain}}" AutomationProperties.HelpText="{Binding HourEnd}">
+              <StackPanel><AccessText Text="{x:Static t:Copy+Inline.OneHour}" TextWrapping="Wrap"/><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,0" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding HourEnd}" Typography.NumeralAlignment="Tabular"/></StackPanel>
+            </RadioButton>
+            <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" Tag="{x:Static t:Life.FourHours}" IsChecked="{Binding IsFour, Mode=OneWay}" Click="OnLife"
+                         AutomationProperties.Name="{Binding Source={x:Static t:Copy+Inline.FourHours}, Converter={x:Static t:All.Plain}}" AutomationProperties.HelpText="{Binding FourEnd}">
+              <StackPanel><AccessText Text="{x:Static t:Copy+Inline.FourHours}" TextWrapping="Wrap"/><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,0" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding FourEnd}" Typography.NumeralAlignment="Tabular"/></StackPanel>
+            </RadioButton>
+            <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" Tag="{x:Static t:Life.Today}" IsChecked="{Binding IsToday, Mode=OneWay}" Click="OnLife"
+                         AutomationProperties.Name="{Binding Source={x:Static t:Copy+Inline.Today}, Converter={x:Static t:All.Plain}}" AutomationProperties.HelpText="{Binding TodayEnd}">
+              <StackPanel><AccessText Text="{x:Static t:Copy+Inline.Today}" TextWrapping="Wrap"/><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,0" FontWeight="Normal" TextWrapping="Wrap" Text="{Binding TodayEnd}" Typography.NumeralAlignment="Tabular"/></StackPanel>
+            </RadioButton>
+          </StackPanel>
+          <Rectangle Height="1" Margin="12,8,12,0" Fill="{DynamicResource {x:Static t:K.Line}}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="12,8,12,4" TextWrapping="Wrap" Text="{Binding Applies}"/>
+        </StackPanel>
+      </Border>
+    </Popup>
   </Grid>
 </Window>

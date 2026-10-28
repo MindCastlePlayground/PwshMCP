@@ -27,6 +27,8 @@ public static class Names
     public const string ZhTag = "zh", EnTag = "en", ZhCulture = "zh-CN", EnCulture = "en-US";
     public const string ArtifactDir = "artifacts", ArtifactSub = "ui-0.4.0", Report = "ui-selftest.txt", PngExt = ".png";
     public const string Armed = "armed";
+    /// <summary>Automation id of the footer lifetime link that anchors the lifetime popup.</summary>
+    public const string LifeBtn = "pm.lifeBtn";
 }
 
 public static class Timing
@@ -334,6 +336,9 @@ public static class Copy
         public static string UntilSignOut => T("直到注销", "Until sign-out");
         public static string SignOutNote => T("锁屏不会结束授权；注销或重启会。", "Locking the screen doesn't end access; signing out or restarting does.");
         public static string Picked => T("有效期：{0}", "Lasts: {0}");
+        public static string Change => T("更改授权有效期", "Change how long access lasts");
+        public static string AtSignOut => T("注销或重启时结束，锁屏不会", "Ends at sign-out or restart, not on lock");
+        public static string Applies => T("适用于 {0} 在本次 Windows 登录中发送的所有命令，不只是此任务。", "Covers every command {0} sends during this Windows sign-in, not just this task.");
         public static string Sending => T("正在批准…", "Approving…");
         public static string Resuming => T("正在重启…", "Restarting…");
         public static string Done => T("已批准，授权生效中。", "Approved. Access is active.");
@@ -405,6 +410,7 @@ public static class Report
     public const string Layout = "layout", Clip = "clipped", Render = "render", Same = "same-in-both";
     public const string Main = "main", Approve = "approve", Name = "{0}-{1}-{2}{3}";
     public const string Gate = "gate", Inline = "inline", Sent = "sent", Down = "down", Broken = "broken", Failed = "failed";
+    public const string Pop = "popup";
 }
 
 /// <summary>Broker error codes the tray translates (mirrors PwshMcp.Host Errors).</summary>

@@ -1,9 +1,11 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace PwshMcp.Tray;
 
@@ -18,8 +20,13 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = vm;
         vm.PropertyChanged += OnVm;
-        IsVisibleChanged += (_, _) => vm.Viewing = IsVisible && WindowState != WindowState.Minimized;
-        StateChanged += (_, _) => vm.Viewing = IsVisible && WindowState != WindowState.Minimized;
+        Pop = v => life.IsOpen = v;
+        IsVisibleChanged += (_, _) => { vm.Viewing = IsVisible && WindowState != WindowState.Minimized; if (!IsVisible) Shut(false); };
+        StateChanged += (_, _) => { vm.Viewing = IsVisible && WindowState != WindowState.Minimized; Shut(false); };
+        // A popup left floating over a moved, resized or backgrounded window would point at the wrong place.
+        Deactivated += (_, _) => Shut(false);
+        LocationChanged += (_, _) => Shut(false);
+        SizeChanged += (_, _) => Shut(false);
         InputBindings.Add(new KeyBinding(new Relay(() => vm.Tab = Tab.Requests), Key.D1, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new Relay(() => vm.Tab = Tab.Access), Key.D2, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new Relay(() => vm.Tab = Tab.Tasks), Key.D3, ModifierKeys.Control));
@@ -32,6 +39,7 @@ public partial class MainWindow : Window
     void OnVm(object? s, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is not (nameof(MainVm.Selected) or "" or null)) return;
+        if (bound is not null && !ReferenceEquals(bound, vm.Selected)) Shut(false);
         if (ReferenceEquals(shown, vm.Selected)) return;
         shown = vm.Selected;
         if (!Theme.Motion || shown is null) return;
@@ -61,14 +69,92 @@ public partial class MainWindow : Window
         });
     }
 
-    /// <summary>Footer lifetime echo: scrolls the approval card into view and puts focus on the chosen lifetime.</summary>
+    // ---- lifetime popup: opened from the footer link, bound to one pending request while open ----------------------
+
+    GrantVm? bound;
+    Button? anchor, last;
+    long shutAt;
+
+    /// <summary>Popup visibility seam. The offline check swaps it so no popup window is ever created.</summary>
+    internal Action<bool> Pop;
+    internal GrantVm? Bound => bound;
+
     void OnPicked(object sender, RoutedEventArgs e)
     {
-        var issue = (Style)FindResource(K.Issue);
-        var card = Find<Border>(detail, b => b.Style == issue && b.IsVisible);
-        if (card is null) return;
-        card.BringIntoView();
-        Find<RadioButton>(card, r => r.IsChecked == true)?.Focus();
+        // The outside click that just closed the popup also lands on its own anchor; that click must not reopen it.
+        if (ReferenceEquals(sender, last) && Environment.TickCount64 - shutAt < 300) return;
+        if (sender is Button b) Open(b);
+    }
+
+    /// <summary>Opens the popup for the request behind <paramref name="b"/>; refused unless that request is selected, pending and editable.</summary>
+    internal bool Open(Button b)
+    {
+        if (b.DataContext is not GrantVm g || !ReferenceEquals(g, vm.Selected) || !g.ShowPick || !g.CanPick) return false;
+        Shut(false);
+        g.Touch(); // previews count from now, not from when the request was selected
+        bound = g; anchor = b;
+        lifeCard.DataContext = g;
+        g.PropertyChanged += OnBound;
+        life.PlacementTarget = b;
+        life.PopupAnimation = Theme.Motion ? PopupAnimation.Fade : PopupAnimation.None;
+        Turn(b, 180);
+        Pop(true);
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () => { if (bound == g) Checked()?.Focus(); });
+        return true;
+    }
+
+    /// <summary>Closes and unbinds. <paramref name="focus"/> returns focus to the anchor (Esc, a choice); outside clicks leave it where the user clicked.</summary>
+    internal void Shut(bool focus)
+    {
+        if (bound is not { } g) return;
+        g.PropertyChanged -= OnBound;
+        bound = null;
+        var b = anchor; anchor = null;
+        Pop(false);
+        lifeCard.DataContext = null;
+        if (b is null) return;
+        Turn(b, 0);
+        if (focus && b.IsVisible) b.Focus();
+    }
+
+    internal RadioButton? Checked() => Find<RadioButton>(lifeCard, r => r.IsChecked == true);
+
+    /// <summary>Picks a lifetime for the bound request and closes; ignored once the request can't be edited.</summary>
+    internal void Choose(Life l)
+    {
+        if (bound is not { CanPick: true } g) return;
+        g.Pick(l);
+        Shut(true);
+    }
+
+    /// <summary>Esc closes, Enter picks the focused choice. Handled keys never reach the window's Esc-to-hide binding.</summary>
+    internal bool Press(Key k, object? focused)
+    {
+        if (bound is null) return false;
+        if (k == Key.Escape) { Shut(true); return true; }
+        if (k == Key.Enter && focused is RadioButton { Tag: Life l }) { Choose(l); return true; }
+        return false;
+    }
+
+    void OnLife(object sender, RoutedEventArgs e) { if (sender is RadioButton { Tag: Life l }) Choose(l); }
+    void OnLifeKey(object sender, KeyEventArgs e) => e.Handled = Press(e.Key, Keyboard.FocusedElement);
+
+    void OnLifeClosed(object? sender, EventArgs e)
+    {
+        if (bound is null) return;
+        last = anchor; shutAt = Environment.TickCount64;
+        Shut(false);
+    }
+
+    /// <summary>A request that stops being selected, pending or editable takes its popup down with it.</summary>
+    void OnBound(object? s, PropertyChangedEventArgs e)
+    {
+        if (bound is { } g && (!g.ShowPick || !g.CanPick || !ReferenceEquals(g, vm.Selected))) Shut(false);
+    }
+
+    static void Turn(Button b, double angle)
+    {
+        if (Find<System.Windows.Shapes.Path>(b, _ => true) is { } p) p.RenderTransform = new RotateTransform(angle);
     }
 
     static T? Find<T>(DependencyObject d, Func<T, bool> ok) where T : DependencyObject
@@ -93,9 +179,16 @@ public partial class MainWindow : Window
     /// <summary>Closes for real (replaced, not hidden). The view model lives on in the new window.</summary>
     public void Retire()
     {
-        retired = true;
-        vm.PropertyChanged -= OnVm;
+        Release();
         Close();
+    }
+
+    /// <summary>Unhooks from the view model and takes the lifetime popup down; the offline check stops here, short of a real Close.</summary>
+    internal void Release()
+    {
+        retired = true;
+        Shut(false);
+        vm.PropertyChanged -= OnVm;
     }
 
     protected override void OnClosing(CancelEventArgs e)

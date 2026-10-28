@@ -171,6 +171,13 @@ public sealed class GrantVm : Bindable
     public string Footer => string.IsNullOrEmpty(notice) && IsPending && main.GateBad ? Copy.Gate.Head : notice;
     public bool ShowPick => string.IsNullOrEmpty(notice) && IsPending && !main.GateBad;
     public string Picked => string.Format(Copy.Inline.Picked, LifeText);
+    /// <summary>Deadline each lifetime would mean if chosen now; the popup shows them beside the choices.</summary>
+    public string SignOutEnd => Copy.Inline.AtSignOut;
+    public string HourEnd => Preview(Life.OneHour);
+    public string FourEnd => Preview(Life.FourHours);
+    public string TodayEnd => Preview(Life.Today);
+    static string Preview(Life l) => Lives.End(l) is { } e ? string.Format(Copy.Inline.Until, Fmt.Full(e)) : Copy.Inline.AtSignOut;
+    public string Applies => string.Format(Copy.Inline.Applies, Client);
     public bool CanApprove => main.Ready && !sending;
     public string Allows => string.Format(Copy.Inline.Allows, Client);
     public bool GateBad => main.GateBad;

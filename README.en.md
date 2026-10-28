@@ -210,7 +210,7 @@ Uninstalling does not undo changes that commands made to the system. The legacy 
 | Scope | Status |
 | --- | --- |
 | Desktop installation, real normal/elevated commands, fresh environments | Verified on the development machine (0.4.0) |
-| Latest offline UI checks | **789 checks pass** |
+| Latest offline UI checks | **815 self-tests and 1039 render checks pass** |
 | Logon startup, lock/sign-out, touch, actual high DPI, etc. | Some cases not yet verified |
 
 Offline rendering is not live interaction testing, and none of this is an independent security audit. Full details are in the [0.4.0 acceptance record](docs/ACCEPTANCE-0.4.0.md) (Chinese).

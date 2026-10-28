@@ -583,6 +583,8 @@ public static class Check
 
     /// <summary>The repair window's fixed width (it does not resize), and a narrower one for large text scaling.</summary>
     static readonly int[] FixWidths = [440, 520];
+    /// <summary>Short work areas for the capped dialog: a small laptop and the main window's own check height.</summary>
+    static readonly int[] TightHeights = [480, 660];
     /// <summary>Visible action order per dialog state, from the first language run; the second must match it exactly.</summary>
     static readonly Dictionary<string, string> Shapes = [];
 
@@ -697,6 +699,10 @@ public static class Check
             var shields = All<System.Windows.Shapes.Path>(dh).Where(p => p.Data == shield && Shown(p) && Up<Button>(p) is not null).Select(p => Up<Button>(p)!.Name).ToList();
             Note(shields.All(n => n == win.elevate.Name) && shields.Count == (fix.ShowElev && !fix.Elevating ? 1 : 0), Report.Elev,
                 $"{what} {Report.Dialog} {state}: shield only on the elevated fallback ({string.Join(",", shields)})");
+            // A turning arc means work in flight: none at rest, one per busy action.
+            var arcs = All<System.Windows.Shapes.Path>(dh).Count(p => p.Name == Report.Arc && Shown(p));
+            var busy = new[] { fix.ConnRunning, fix.Restarting, fix.Starting, fix.Elevating }.Count(b => b);
+            Note(arcs == busy, Report.Busy, $"{what} {Report.Dialog} {state}: {arcs} spinner(s) shown for {busy} action(s) in flight");
             var order = string.Join(",", All<Button>(dh).Where(Shown).OrderBy(b => Box(b, dh).Top).ThenBy(b => Box(b, dh).Left).Select(b => Fmt.Or(b.Name, "close")));
             if (Shapes.TryGetValue(state, out var was)) Note(was == order, Report.Dialog, $"{what} {Report.Dialog} {state}: same actions in the same place as the other language ({order})");
             else Shapes[state] = order;
@@ -740,7 +746,8 @@ public static class Check
              && new[] { Copy.Fix.Starting, Copy.Fix.Reconnecting }.All(s => Texts(dh).Contains(s.Replace("_", ""))),
             Report.Busy, $"{what} dialog: busy labels shown in place, both buttons bound to refusing commands");
 
-        // Task missing or refused: the shield fallback appears, but nothing elevated runs until its own click.
+        // Registered startup did not restore the executor (task missing/refused, or no trusted ready answer within 8 s):
+        // the shield fallback appears, but nothing elevated runs until its own click.
         hold.SetResult(new RepairResult(RepairState.NeedsElevation, "task missing"));
         bh.SetResult(new RepairResult(RepairState.Failed, "pipe busy"));
         Note(!fix.Exec.Busy && fix.ShowElev && fix.Elevate.CanExecute(null) && ec.Count == 1 && fix.Exec.Note == Copy.Fix.NeedsElev && fix.StartText == Copy.Fix.Start,
@@ -749,6 +756,49 @@ public static class Check
             Report.Repair, $"{what} failed reconnect: plain result, backend detail only in diagnostics");
         Dialog(Report.Elev, [Fx(nameof(Copy.Fix.ElevHead)), Fx(nameof(Copy.Fix.ExecHead)), Dia(nameof(Copy.Diag.Head))]);
         Note(win.elevCard.Visibility == Visibility.Visible && Live(win.elevate), Report.Elev, $"{what} dialog shows the shield card");
+
+        // Started, but no trusted ready answer: a long backend error, diagnostics open, fallback offered. Taller than a short screen,
+        // so the window is capped to the work area and the shared scroll area carries the rest; fallback and Close stay reachable.
+        ea = Task.FromResult(new RepairResult(RepairState.NeedsElevation, string.Concat(Enumerable.Repeat("started; no trusted ready response from \\\\.\\pipe\\pwshmcp-admin; ", 40))));
+        fix.Start.Execute(null);
+        Note(!ec.Last() && fix.ShowElev && fix.Exec.Note == Copy.Fix.NeedsElev && fix.Exec.Tone == Tone.Wait, Report.Elev,
+            $"{what} timed-out scheduled start: \"{fix.Exec.Note}\", fallback offered, not invoked");
+        Note(RecoveryWindow.Bound(new Rect(0, 40, 1280, 600), 100, 300) == (600, 100) && RecoveryWindow.Bound(new Rect(0, 40, 1280, 600), 500, 400) == (600, 240)
+             && RecoveryWindow.Bound(new Rect(0, 40, 1280, 600), 0, 900) == (600, 40), Report.Dialog, $"{what} window height capped to the work area, top moved so the bottom stays on screen");
+        win.diag.IsExpanded = true;
+        Clean();
+        // The expanded body is only built in a layout pass; without one the measure below would still see it collapsed.
+        dh.UpdateLayout();
+        var full = Fit(FixWidths[^1]);
+        foreach (var room in TightHeights)
+        {
+            var w = FixWidths[^1];
+            var (max, top) = RecoveryWindow.Bound(new Rect(0, 0, 1280, room), room / 2.0, full);
+            var h = (int)Math.Min(full, max);
+            var tw = $"{what} {Report.Dialog} {Report.Tight} {room}px";
+            win.scroll.ScrollToTop();
+            Lay(dh, w, h, tw, dir, Report.Dialog, tag, $"{Report.Tight}-{room}");
+            var scp = Find<ScrollContentPresenter>(win.scroll, _ => true)!;
+            var bar = Find<ScrollBar>(win.scroll, b => b.Orientation == Orientation.Vertical && Up<ScrollViewer>(b) == win.scroll);
+            Note(full > room && h == room && top == 0 && win.scroll.ScrollableHeight > 0 && bar?.Visibility == Visibility.Visible && Math.Abs(scp.ActualWidth + Gutter - w) < 0.5,
+                Report.Scroll, $"{tw}: {full}px of content in {h}px, themed bar in the {Gutter}px gutter, content {scp.ActualWidth:0} of {w}px");
+            foreach (var b in new[] { win.elevate, win.close })
+            {
+                win.scroll.ScrollToVerticalOffset(Box(b, (Visual)win.scroll.Content).Top - 12);
+                dh.UpdateLayout(); dh.UpdateLayout();
+                var bb = Box(b, scp);
+                Note(Shown(b) && bb.Top >= 0 && bb.Bottom <= scp.ActualHeight + 0.5 && bb.Right <= scp.ActualWidth - 12, Report.Scroll,
+                    $"{tw}: {b.Name} scrolls whole into view ({bb.Top:0}..{bb.Bottom:0} of {scp.ActualHeight:0}, right {bb.Right:0})");
+            }
+            win.scroll.ScrollToEnd();
+            dh.UpdateLayout(); dh.UpdateLayout();
+            var last = All<TextBox>(win.diag).Where(Shown).LastOrDefault();
+            Note(last is not null && last.Text.StartsWith(nameof(RepairState.NeedsElevation)) && Box(last, scp).Bottom <= scp.ActualHeight + 0.5, Report.Scroll,
+                $"{tw}: end of the long backend error reachable ({(last is null ? 0 : Box(last, scp).Bottom):0} of {scp.ActualHeight:0})");
+            if (dir is not null) Lay(dh, w, h, $"{tw} end", dir, Report.Dialog, tag, $"{Report.Tight}-{room}-end");
+        }
+        win.diag.IsExpanded = false;
+        win.scroll.ScrollToTop();
 
         // Elevated run only from its button; outcomes other than Ready are never worded as working.
         foreach (var (s, text) in new[] { (RepairState.Cancelled, Copy.Fix.Cancelled), (RepairState.Started, Copy.Fix.Started), (RepairState.Failed, Copy.Fix.Failed) })

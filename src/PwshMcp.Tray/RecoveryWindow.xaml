@@ -9,10 +9,15 @@
   <!--
     Two components, one structure: name + live chip, what it is, what is wrong now, one primary action, the checked result.
     The connection never borrows the executor's words and vice versa. The only shield here is the explicit elevated fallback,
-    and it appears only after the backend says the scheduled task is missing or refused. Diagnostics stay collapsed and copyable.
+    and it appears only after the backend says the registered startup did not restore the executor (task missing or refused, or no
+    trusted ready answer in time); even then it runs only from its own click. Diagnostics stay collapsed and copyable.
+    Height follows the content up to the display's work area (code-behind); past that the shared scroll area takes over. Its 10px
+    gutter comes out of the right padding (24 -> 14), so the text column keeps its width. Close shares the Diagnostics row, so it is
+    in view whenever that toggle is.
   -->
+  <ScrollViewer x:Name="scroll" Style="{StaticResource {x:Static t:K.Scroll}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
   <StackPanel>
-    <StackPanel Margin="24,18,24,12">
+    <StackPanel Margin="24,18,14,12">
       <StackPanel Orientation="Horizontal">
         <Path Data="{StaticResource {x:Static t:K.Mark}}" Fill="{DynamicResource {x:Static t:K.Accent}}" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center"/>
         <TextBlock Margin="10,0,0,0" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" Text="{x:Static t:Copy+Fix.Title}"/>
@@ -21,7 +26,7 @@
     </StackPanel>
 
     <!-- Local connection -->
-    <Border x:Name="connPart" Style="{StaticResource {x:Static t:Rk.Part}}" AutomationProperties.Name="{x:Static t:Copy+Fix.ConnHead}">
+    <Border x:Name="connPart" Style="{StaticResource {x:Static t:Rk.Part}}" Padding="24,14,14,16" AutomationProperties.Name="{x:Static t:Copy+Fix.ConnHead}">
       <StackPanel>
         <DockPanel>
           <t:Chip DockPanel.Dock="Right" Text="{Binding ConnTitle}" Tone="{Binding ConnTone}"/>
@@ -59,7 +64,7 @@
     </Border>
 
     <!-- Admin executor -->
-    <Border x:Name="execPart" Style="{StaticResource {x:Static t:Rk.Part}}" AutomationProperties.Name="{x:Static t:Copy+Fix.ExecHead}">
+    <Border x:Name="execPart" Style="{StaticResource {x:Static t:Rk.Part}}" Padding="24,14,14,16" AutomationProperties.Name="{x:Static t:Copy+Fix.ExecHead}">
       <StackPanel>
         <DockPanel>
           <t:Chip DockPanel.Dock="Right" Text="{Binding GateTitle}" Tone="{Binding GateTone}"/>
@@ -102,15 +107,16 @@
     </Border>
 
     <!-- Diagnostics and close -->
-    <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="24,4,24,14">
+    <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="24,4,14,14">
       <Grid>
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Expander x:Name="diag" Style="{StaticResource {x:Static t:K.Diag}}" Margin="0,10,16,0" Header="{x:Static t:Copy+Diag.Head}">
           <ItemsControl ItemsSource="{Binding Diag}" ItemTemplate="{StaticResource {x:Static t:K.Facts}}" Grid.IsSharedSizeScope="True" Focusable="False"/>
         </Expander>
-        <Button Grid.Column="1" Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,10,0,0" VerticalAlignment="Top" IsCancel="True"
+        <Button x:Name="close" Grid.Column="1" Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,10,0,0" VerticalAlignment="Top" IsCancel="True"
                 Content="{x:Static t:Copy+Fix.Close}" Click="OnClose"/>
       </Grid>
     </Border>
   </StackPanel>
+  </ScrollViewer>
 </Window>

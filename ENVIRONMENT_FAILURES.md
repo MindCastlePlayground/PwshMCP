@@ -50,3 +50,4 @@
 - 2026-10-29: plain `git push` failed because main has no upstream. Use explicit `git push origin main` for this checkout.
 - 2026-10-29: diagnostic read included absent Tray/Runtime.cs and returned exit 1 despite suppressed output. Use rg --files/Test-Path before optional reads; no runtime action failed.
 - 2026-10-29: Claude JSONL summary assumed message.content always contains block objects. Some events use strings; filter for dict blocks before accessing tool fields.
+- 2026-10-29: optional source read assumed Shared/AdminNames.cs existed; constants are grouped elsewhere. Avoid guessed source filenames; enumerate paths before reading.

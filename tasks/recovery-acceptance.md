@@ -19,3 +19,16 @@
 - New isolated Windows pipe tests passed: busy error classification, exited-client handling and a subsequent status request. They do not reproduce the original incident or prove whole-loop saturation recovery.
 - Installed administrator boundary test passed: coordinator ready; non-tray approve/resume requests rejected.
 - UI tests, final package installation and TaskHub crash recovery remain pending until their results are appended below.
+
+## Published UI and review
+
+- Published `f441ce5` adds the recovery window, header/status entry points, tray entry, explicit UAC fallback, busy states and bilingual text.
+- Claude's first completed UI pass: 783 self-test checks and 995 render checks, all passing. These use fake transports and do not start executors or approve grants.
+- Review requested a final correction for expanded diagnostics exceeding the screen, plus wording for a registered task that starts but never becomes ready. Final installation waits for this correction.
+- Added a deterministic closed-stream fixture: the unguarded exchange faults, while the new serving boundary contains it. The isolated recovery test passes.
+
+## Final package
+
+- Final Claude UI correction passed 815 self-test checks and 1039 render checks. Constrained 480/660px views include expanded diagnostics and a long backend error; scrolling keeps controls reachable. Chinese and English renders were inspected.
+- Release package built successfully in `artifacts/recovery-package`. Actual installation and TaskHub acceptance still require the user to approve the concrete installation request in the installed tray.
+- The old installed coordinator exited again with task result 1 during development, and was restarted through its existing scheduled task without UAC. This reinforces the need to validate the replacement runtime rather than equating a restart with a permanent fix.

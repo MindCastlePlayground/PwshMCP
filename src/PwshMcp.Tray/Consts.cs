@@ -433,7 +433,9 @@ public static class Copy
         public static string Started => T("已启动，但 8 秒内没有通过检查。稍后会自动再查，也可以重试。", "Started, but it didn't pass the check within 8 seconds. It's checked again shortly, or you can retry.");
         public static string Failed => T("未能恢复。原因见下方诊断信息。", "Not recovered. Diagnostics below has the cause.");
         public static string Cancelled => T("已取消 Windows 提示，没有做任何更改。", "The Windows prompt was cancelled. Nothing changed.");
-        public static string NeedsElev => T("计划任务不存在或被拒绝，没有弹出提示。", "The scheduled task is missing or was refused. No prompt was shown.");
+        // NeedsElevation from the scheduled path: task missing or refused, or started without a trusted ready answer within 8 s.
+        // The cause is in diagnostics; this line stays generic and never implies a prompt was shown.
+        public static string NeedsElev => T("已注册的启动方式没有恢复执行器，没有弹出提示。", "Registered startup didn't restore the executor. No prompt was shown.");
         public static string NotOwned => T("代理由其他程序运行，托盘没有结束它。请在那个程序中重启，或重新连接。", "Another program runs the broker, so the tray didn't stop it. Restart it there, or reconnect.");
 
         public static string DiagConn => T("连接详情", "Connection detail");
@@ -481,7 +483,9 @@ public static class Report
     public const string Main = "main", Approve = "approve", Name = "{0}-{1}-{2}{3}";
     public const string Gate = "gate", Inline = "inline", Sent = "sent", Down = "down", Broken = "broken", Failed = "failed";
     public const string Pop = "popup";
-    public const string Repair = "repair", Dialog = "dialog", Both = "both-down", Elev = "elevate", Busy = "busy";
+    public const string Repair = "repair", Dialog = "dialog", Both = "both-down", Elev = "elevate", Busy = "busy", Tight = "tight";
+    /// <summary>x:Name of the turning arc in K.BusyTpl.</summary>
+    public const string Arc = "arc";
     public const string Ended = "ended", Mixed = "mixed", EndedOnly = "ended-only", ActiveOnly = "active-only";
     public const string Scroll = "scroll", Top = "top", Bottom = "bottom", Detail = "detail";
 }

@@ -401,7 +401,7 @@ public sealed class FixVm : Bindable
         catch (Exception e) { r = new(RepairState.Failed, e.Message); }
         if (p == Exec)
         {
-            // A missing or refused task unlocks the shield button; a cancelled prompt keeps it, so trying again stays one click.
+            // An unsuccessful registered startup unlocks the shield button; a cancelled prompt keeps it available.
             if (r.State == RepairState.NeedsElevation) elev = true;
             else if (r.State == RepairState.Ready) elev = false;
             recheck();

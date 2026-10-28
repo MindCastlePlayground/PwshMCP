@@ -25,7 +25,10 @@ Both languages use the same order: a header and intro, then **Local connection**
 4. its actions,
 5. a checked result line (`AutomationProperties.LiveSetting=Polite`).
 
-The window is a fixed 520 px wide and sizes to its content: 480–650 px tall across all states, so it fits a 660 px screen.
+The window is a fixed 520 px wide and sizes to its content: 476–648 px tall across all states with diagnostics collapsed, so it fits a 660 px screen.
+Its height is capped to the work area of its display (before it is placed, the owner's display). If it grows, for example when diagnostics open with a long backend error, it moves up so its bottom stays on screen (`RecoveryWindow.Bound`).
+Past the cap, the shared `K.Scroll` area scrolls the content. Its 10 px gutter comes out of the right padding (24 → 14), so the text column keeps its width.
+Close shares the Diagnostics row, so it is in view whenever that toggle is. Esc also closes.
 
 | Part | Actions |
 |---|---|
@@ -43,12 +46,23 @@ The calls are `Monitor.RecoverAsync(restart)` and `Recovery.ExecutorAsync(elevat
 |---|---|---|
 | Ready | Connected again / Executor ready (the probe answered) | green |
 | Started | Started, not confirmed yet | amber |
-| NeedsElevation | Scheduled task missing or refused, no prompt shown; unlocks the shield card | amber |
+| NeedsElevation | "Registered startup didn't restore the executor. No prompt was shown." The backend returns it when the task is missing or refused, or when the task starts but no trusted ready answer arrives within 8 s. It unlocks the shield card; elevation still needs its own click, never auto-UAC. | amber |
 | Cancelled | Prompt cancelled; the fallback stays one click away | muted |
 | NotOwned | Broker not owned, nothing restarted | red |
 | Failed / exception | Not recovered; see diagnostics | red |
 
 Only Ready is worded as working. Detail is shown only in diagnostics.
+
+## Offline evidence, final pass (`artifacts/recovery-final`)
+
+- Fresh build with `--artifacts-path artifacts/recovery-final/build`.
+- Self-test: **815 checks, 0 failed** (`self/ui-selftest.txt`). Render check: **1039 checks, 0 failed** (`render/`). Fake transports only.
+- Added:
+  - a timed-out scheduled start (NeedsElevation with a long backend error) offers the fallback without invoking it
+  - `Bound` caps the height to the work area and keeps the bottom on screen
+  - with diagnostics expanded at 480 and 660 px work areas, in zh and en, the content scrolls in the themed gutter, the fallback and Close scroll whole into view, and the end of the error is reachable (`dialog-*-tight-*.png`)
+  - every dialog state shows exactly one spinner per action in flight, and none at rest
+- The at-rest height assertions (≤ 660 px) are kept.
 
 ## Offline evidence (`artifacts/recovery-ui`)
 

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
@@ -17,7 +18,34 @@ public partial class RecoveryWindow : Window
         Language = L.Xml;
         InitializeComponent();
         DataContext = vm;
+        // SizeToContent grows downward; expanded diagnostics must not push Close past the bottom of the screen.
+        SourceInitialized += (_, _) => Keep();
+        SizeChanged += (_, _) => Keep();
+        LocationChanged += (_, _) => Keep();
+        DpiChanged += (_, _) => Keep();
     }
+
+    /// <summary>Work area (DIPs) of the display this window is on; before it is placed, the owner's display.</summary>
+    Rect? Area()
+    {
+        if (PresentationSource.FromVisual(this) is not HwndSource src || src.CompositionTarget is null) return null;
+        var at = !IsVisible && Owner is { } o ? new WindowInteropHelper(o).Handle : src.Handle;
+        var r = System.Windows.Forms.Screen.FromHandle(at == IntPtr.Zero ? src.Handle : at).WorkingArea;
+        var m = src.CompositionTarget.TransformFromDevice;
+        return new Rect(m.Transform(new Point(r.Left, r.Top)), m.Transform(new Point(r.Right, r.Bottom)));
+    }
+
+    void Keep()
+    {
+        if (Area() is not { } a) return;
+        var (max, top) = Bound(a, Top, ActualHeight);
+        if (Math.Abs(MaxHeight - max) > 0.5) MaxHeight = max;
+        if (IsVisible && !double.IsNaN(Top) && Math.Abs(Top - top) > 0.5) Top = top;
+    }
+
+    /// <summary>The tallest the window may be, and a top that keeps its whole height (so Close) inside the work area.</summary>
+    internal static (double Max, double Top) Bound(Rect area, double top, double h) =>
+        (area.Height, Math.Max(area.Top, Math.Min(top, area.Bottom - Math.Min(h, area.Height))));
 
     /// <summary>The part last pointed at; the offline check reads it instead of watching focus.</summary>
     internal Part Cued { get; private set; }

@@ -11,14 +11,16 @@ internal sealed record Peer(string Sid,string User,int Session,string Logon,bool
     {
         if(!GetNamedPipeClientProcessId(pipe.SafePipeHandle.DangerousGetHandle(),out var pid)) throw new UnauthorizedAccessException();
         var session=Process.GetProcessById((int)pid).SessionId;
-        Peer? peer=null;
-        pipe.RunAsClient(()=>
+        WindowsIdentity? identity=null;
+        // Only capture the token inside native pipe impersonation. WindowsIdentity.Name
+        // internally uses RunImpersonated and can capture that token into AsyncLocal,
+        // restoring the client's identity after a later await even after RunAsClient reverts.
+        pipe.RunAsClient(()=>identity=WindowsIdentity.GetCurrent(true));
+        using(var id=identity ?? throw new UnauthorizedAccessException())
         {
-            using var id=WindowsIdentity.GetCurrent(true) ?? throw new UnauthorizedAccessException();
             var principal=new WindowsPrincipal(id);
-            peer=new(id.User!.Value,id.Name,session,ReadLogon(id),principal.IsInRole(WindowsBuiltInRole.Administrator),(int)pid);
-        });
-        return peer ?? throw new UnauthorizedAccessException();
+            return new(id.User!.Value,id.Name,session,ReadLogon(id),principal.IsInRole(WindowsBuiltInRole.Administrator),(int)pid);
+        }
     }
     private static string ReadLogon(WindowsIdentity id)
     {

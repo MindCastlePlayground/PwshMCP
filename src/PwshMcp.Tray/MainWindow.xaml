@@ -40,6 +40,42 @@
                 <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.RequestEnds}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding RequestEnds}"/></StackPanel>
               </UniformGrid>
               <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource {x:Static t:K.ScopeTpl}}" Margin="0,-2,0,0"/>
+
+              <!-- The badge before it is issued: same card shape as an active grant, accent band previews the chosen lifetime. -->
+              <Border Style="{StaticResource {x:Static t:K.Issue}}" Visibility="{Binding GateBad, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                    <Path Data="{StaticResource {x:Static t:K.Shield}}" Fill="{DynamicResource {x:Static t:K.Accent}}" Width="13" Height="15" Stretch="Uniform" VerticalAlignment="Center"/>
+                    <TextBlock Margin="9,0,0,0" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Text="{x:Static t:Copy+Inline.Head}"/>
+                  </StackPanel>
+                  <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,10,0,0" FontSize="13.5" LineHeight="20" Text="{Binding Allows}"/>
+                  <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,8" Text="{x:Static t:Copy+Inline.Lasts}"/>
+                  <UniformGrid Columns="2" IsEnabled="{Binding CanPick}" KeyboardNavigation.DirectionalNavigation="Cycle">
+                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsSignOut}" Content="{x:Static t:Copy+Inline.SignOut}"/>
+                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsHour}" Content="{x:Static t:Copy+Inline.OneHour}"/>
+                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsFour}" Content="{x:Static t:Copy+Inline.FourHours}"/>
+                    <RadioButton Style="{StaticResource {x:Static t:K.Pick}}" GroupName="{Binding Id}" IsChecked="{Binding IsToday}" Content="{x:Static t:Copy+Inline.Today}"/>
+                  </UniformGrid>
+                  <t:Band Margin="2,8,0,10" Start="{Binding Now, Mode=OneWay}" Now="{Binding Now, Mode=OneWay}" End="{Binding Until, Mode=OneWay}" Span="{Binding LifeSpan, Mode=OneWay}"
+                          Fill="{DynamicResource {x:Static t:K.Accent}}" Track="{DynamicResource {x:Static t:K.Accent}}" Tick="{DynamicResource {x:Static t:K.Ink}}"/>
+                  <TextBlock Style="{StaticResource {x:Static t:K.Value}}" FontWeight="SemiBold" Text="{Binding LifeText}"/>
+                  <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,2,0,0" TextWrapping="Wrap" Text="{Binding LifeNote}"/>
+                </StackPanel>
+              </Border>
+
+              <!-- Executor unavailable: same position, says why and what to do. Approve stays disabled; nothing falls back to a Windows prompt. -->
+              <Border Style="{StaticResource {x:Static t:K.Blocked}}" Visibility="{Binding GateBad, Converter={StaticResource {x:Static t:K.Vis}}}">
+                <StackPanel>
+                  <TextBlock FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" Text="{x:Static t:Copy+Gate.Head}"/>
+                  <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,8,0,0" FontSize="13.5" LineHeight="20" Text="{Binding GateBody}"/>
+                  <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,8,0,0" TextWrapping="Wrap" Text="{x:Static t:Copy+Gate.NoPrompt}"/>
+                  <WrapPanel Margin="0,12,0,0">
+                    <Button Style="{StaticResource {x:Static t:K.Secondary}}" Margin="0,0,12,0" Command="{Binding Recheck}" Content="{x:Static t:Copy+Gate.Recheck}"/>
+                    <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0" VerticalAlignment="Center" Text="{Binding GateAt}"/>
+                  </WrapPanel>
+                </StackPanel>
+              </Border>
+
               <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Text="{Binding WaitingHead}"/>
               <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{x:Static t:Copy+Detail.NoWaiting}"
                          Visibility="{Binding Waiting.Count, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}"/>
@@ -85,7 +121,17 @@
         <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="32,14">
           <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <TextBlock Margin="0,0,16,0" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="13" Text="{Binding Notice}" AutomationProperties.LiveSetting="Polite">
+            <!-- Before an outcome exists, a pending request echoes its chosen lifetime beside Approve; clicking it brings the picker into view. -->
+            <Button Style="{StaticResource {x:Static t:K.Quiet}}" Margin="-10,0,16,0" HorizontalAlignment="Left" Click="OnPicked"
+                    Visibility="{Binding ShowPick, Converter={StaticResource {x:Static t:K.Vis}}}">
+              <DockPanel>
+                <Path DockPanel.Dock="Right" Data="M0,0 L4,4 L8,0" StrokeThickness="1.5" Width="9" Height="5" Margin="8,1,0,0" VerticalAlignment="Center"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                <TextBlock FontWeight="Normal" TextWrapping="Wrap" Text="{Binding Picked}"/>
+              </DockPanel>
+            </Button>
+            <TextBlock Margin="0,0,16,0" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="13" Text="{Binding Footer}" AutomationProperties.LiveSetting="Polite"
+                       Visibility="{Binding ShowPick, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}">
               <TextBlock.Style>
                 <Style TargetType="TextBlock">
                   <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
@@ -95,24 +141,24 @@
             </TextBlock>
             <!-- Actions keep one row; on a narrow pane the notice wraps instead of the buttons. -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button Style="{StaticResource {x:Static t:K.Secondary}}" Margin="10,0,0,0" Command="{Binding Restart}">
+              <Button Style="{StaticResource {x:Static t:K.Secondary}}" Margin="10,0,0,0" Command="{Binding Restart}" IsEnabled="{Binding CanApprove}">
                 <Button.Visibility>
                   <MultiBinding Converter="{x:Static t:All.Vis}"><Binding Path="IsActive"/><Binding Path="WorkerOn" Converter="{x:Static t:All.Not}"/></MultiBinding>
                 </Button.Visibility>
                 <StackPanel Orientation="Horizontal">
-                  <Path Data="{StaticResource {x:Static t:K.Shield}}" Fill="{DynamicResource {x:Static t:K.Accent}}" Width="13" Height="14" Stretch="Uniform" Margin="0,0,8,0"/>
-                  <AccessText Text="{x:Static t:Copy+Detail.RestartWorker}"/>
+                  <ContentPresenter Content="{Binding Sending}" ContentTemplate="{StaticResource {x:Static t:K.BusyTpl}}" Margin="0,0,8,0"/>
+                  <AccessText Text="{Binding RestartText}"/>
                 </StackPanel>
               </Button>
               <Button Style="{StaticResource {x:Static t:K.Danger}}" Margin="10,0,0,0" Command="{Binding Revoke.Click}" Tag="{Binding Revoke.Tag}"
                       Visibility="{Binding IsActive, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{Binding Revoke.Text}"/>
               <Button Style="{StaticResource {x:Static t:K.Danger}}" Margin="10,0,0,0" Command="{Binding Deny.Click}" Tag="{Binding Deny.Tag}"
                       Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}" Content="{Binding Deny.Text}"/>
-              <Button Style="{StaticResource {x:Static t:K.Primary}}" Margin="10,0,0,0" Command="{Binding Approve}"
+              <Button Style="{StaticResource {x:Static t:K.Primary}}" Margin="10,0,0,0" Command="{Binding Approve}" IsEnabled="{Binding CanApprove}"
                       Visibility="{Binding IsPending, Converter={StaticResource {x:Static t:K.Vis}}}">
                 <StackPanel Orientation="Horizontal">
-                  <Path Data="{StaticResource {x:Static t:K.Shield}}" Fill="{DynamicResource {x:Static t:K.AccentInk}}" Width="13" Height="14" Stretch="Uniform" Margin="0,0,8,0"/>
-                  <AccessText Text="{x:Static t:Copy+Detail.Approve}"/>
+                  <ContentPresenter Content="{Binding Sending}" ContentTemplate="{StaticResource {x:Static t:K.BusyTpl}}" Margin="0,0,8,0"/>
+                  <AccessText Text="{Binding ApproveText}"/>
                 </StackPanel>
               </Button>
             </StackPanel>
@@ -213,6 +259,7 @@
         </StackPanel>
         <DockPanel Grid.Column="1" VerticalAlignment="Center" LastChildFill="True" Margin="0,0,16,0">
           <t:Chip DockPanel.Dock="Left" Text="{Binding ConnTitle}" Tone="{Binding ConnTone}"/>
+          <t:Chip DockPanel.Dock="Left" Margin="8,0,0,0" Text="{Binding GateTitle}" Tone="{Binding GateTone}" ToolTip="{Binding GateTip}"/>
           <TextBlock DockPanel.Dock="Right" Margin="12,0,0,0" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource {x:Static t:K.Muted}}" Text="{Binding Stale}"/>
           <TextBlock Margin="12,0,0,0" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}"
                      Text="{Binding ConnDetail}" ToolTip="{Binding ConnDetail}"/>

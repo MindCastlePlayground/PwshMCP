@@ -25,7 +25,7 @@ public static class Names
     /// <summary>Per-user tray preferences (HKCU). Only the language lives here; nothing about authorization.</summary>
     public const string PrefsKey = @"Software\PwshMCP\Tray", LangValue = "Language";
     public const string ZhTag = "zh", EnTag = "en", ZhCulture = "zh-CN", EnCulture = "en-US";
-    public const string ArtifactDir = "artifacts", ArtifactSub = "ui-0.3.0", Report = "ui-selftest.txt", PngExt = ".png";
+    public const string ArtifactDir = "artifacts", ArtifactSub = "ui-0.4.0", Report = "ui-selftest.txt", PngExt = ".png";
     public const string Armed = "armed";
 }
 
@@ -36,6 +36,7 @@ public static class Timing
     public static readonly TimeSpan Confirm = TimeSpan.FromSeconds(4), DoneClose = TimeSpan.FromMilliseconds(1500);
     public static readonly TimeSpan RequestLife = TimeSpan.FromHours(24), RestartWindow = TimeSpan.FromMinutes(1);
     public static readonly TimeSpan Copied = TimeSpan.FromMilliseconds(1500), Fade = TimeSpan.FromMilliseconds(180), Turn = TimeSpan.FromMilliseconds(120);
+    public static readonly TimeSpan GateReady = TimeSpan.FromSeconds(5), GateDown = TimeSpan.FromSeconds(3);
     public const int MaxRestarts = 3;
 }
 
@@ -169,18 +170,16 @@ public static class Copy
         public static string EnvNames => T("设置变量", "Sets variables");
         public static string Profile => T("加载配置文件", "Loads profile");
         public static string SessionName => T("Shell 会话", "Shell session");
-        public static string Approve => T("以管理员身份批准(_A)…", "_Approve as administrator…");
+        public static string Approve => T("批准(_A)", "_Approve");
         public static string Deny => T("拒绝(_D)", "_Deny");
         public static string ConfirmDeny => T("确认拒绝", "Confirm deny");
         public static string Revoke => T("撤销授权(_R)", "_Revoke access");
         public static string ConfirmRevoke => T("确认撤销", "Confirm revoke");
-        public static string RestartWorker => T("重启管理员执行器(_W)…", "Restart admin _worker…");
+        public static string RestartWorker => T("重启管理员执行器(_W)", "Restart admin _worker");
         public static string Cancel => T("取消任务(_C)", "_Cancel task");
         public static string ConfirmCancel => T("确认取消", "Confirm cancel");
         public static string ShowOutput => T("显示输出(_S)", "_Show output");
         public static string HideOutput => T("隐藏输出(_H)", "_Hide output");
-        public static string UacCancelled => T("已在 Windows 提示中取消批准。请求仍在等待。", "Approval was cancelled at the Windows prompt. The request is still waiting.");
-        public static string UacFailed => T("Windows 无法打开批准窗口：{0}", "Windows couldn't open the approval window: {0}");
         public static string Denied => T("已拒绝请求。", "Request denied.");
         public static string Revoked => T("已撤销授权。", "Access revoked.");
         public static string Cancelled => T("已请求取消。代理确认停止后，任务会显示为“已取消”。", "Cancellation requested. The task shows as Cancelled once the broker confirms it stopped.");
@@ -320,6 +319,55 @@ public static class Copy
         public static string Elevation => T("此窗口以管理员身份运行。只有点“批准并开始”后才会授予权限。", "This window runs as administrator. Access is granted only when you choose Approve and start.");
     }
 
+    /// <summary>Approving inside the main window through the installed admin executor. No second window, no Windows prompt.</summary>
+    public static class Inline
+    {
+        public static string Head => T("批准此请求", "Approve this request");
+        public static string Allows => T("批准后，{0} 在本次 Windows 登录中发送的命令将以管理员身份运行，每条都在全新的 PowerShell 环境中执行，直到授权结束。PwshMCP 不会隔离或撤回这些命令造成的更改。",
+            "Once approved, commands {0} sends during this Windows sign-in run as administrator, each in a fresh PowerShell environment, until the access ends. PwshMCP doesn't isolate or undo changes they make.");
+        public static string Lasts => T("有效期", "Lasts");
+        public static string SignOut => T("直到注销(_U)", "Until sign-o_ut");
+        public static string OneHour => T("1 小时(_1)", "_1 hour");
+        public static string FourHours => T("4 小时(_4)", "_4 hours");
+        public static string Today => T("今天结束前(_E)", "Until _end of day");
+        public static string Until => T("至 {0}", "Until {0}");
+        public static string UntilSignOut => T("直到注销", "Until sign-out");
+        public static string SignOutNote => T("锁屏不会结束授权；注销或重启会。", "Locking the screen doesn't end access; signing out or restarting does.");
+        public static string Picked => T("有效期：{0}", "Lasts: {0}");
+        public static string Sending => T("正在批准…", "Approving…");
+        public static string Resuming => T("正在重启…", "Restarting…");
+        public static string Done => T("已批准，授权生效中。", "Approved. Access is active.");
+        public static string Resumed => T("已请求重启管理员执行器，连接后心跳会更新。", "Restart requested. The heartbeat updates once the admin worker connects.");
+        public static string Failed => T("批准失败：{0}。请求仍在等待，可以重试。", "Approval failed: {0}. The request is still waiting; you can retry.");
+        public static string NotActive => T("管理员执行器已响应，但授权未生效（{0}）。没有标记为已批准，可以重试。", "The admin executor answered, but access isn't active ({0}). Nothing was marked approved; you can retry.");
+        public static string ResumeFailed => T("重启失败：{0}。可以重试。", "Restart failed: {0}. You can retry.");
+    }
+
+    /// <summary>The installed admin executor that applies approvals without a Windows prompt.</summary>
+    public static class Gate
+    {
+        public static string Checking => T("检查执行器…", "Checking executor…");
+        public static string Ready => T("执行器就绪", "Executor ready");
+        public static string Down => T("执行器离线", "Executor offline");
+        public static string Broken => T("执行器需修复", "Executor needs repair");
+        public static string Head => T("暂时无法在此批准", "Can't approve here right now");
+        public static string DownBody => T("没有连上已安装的管理员执行器。它由安装程序注册，在你登录 Windows 时启动。从未安装：以管理员身份运行一次 scripts\\install-desktop.ps1。已安装：注销后重新登录，或重新运行安装脚本修复。",
+            "The installed admin executor isn't answering. The installer registers it to start when you sign in to Windows. Never installed: run scripts\\install-desktop.ps1 once as administrator. Already installed: sign out and back in, or rerun the installer to repair it.");
+        public static string BrokenBody => T("管理员执行器有响应，但未通过检查：{0}。请以管理员身份重新运行 scripts\\install-desktop.ps1 修复安装。",
+            "The admin executor answered but didn't pass checks: {0}. Rerun scripts\\install-desktop.ps1 as administrator to repair the install.");
+        public static string NoPrompt => T("托盘不会改为弹出 Windows 提示。请求会继续等待，你仍可拒绝。", "The tray won't fall back to a Windows prompt. The request keeps waiting, and you can still deny it.");
+        public static string Recheck => T("重新检查(_K)", "Chec_k again");
+        public static string Checked => T("上次检查 {0}", "Checked {0}");
+        public static string NoPipe => T("未找到管理员执行器", "admin executor not found");
+        public static string Untrusted => T("响应的程序不是 Program Files\\PwshMCP 中受保护的 PwshMcp.Host.exe", "the responding program isn't the protected PwshMcp.Host.exe in Program Files\\PwshMCP");
+        public static string NotReady => T("执行器报告尚未就绪", "it reports it isn't ready");
+        public static string Offline => T("管理员执行器不可用", "the admin executor is unavailable");
+        public static string Forbidden => T("执行器只接受安装目录中的 PwshMcp.Tray.exe，请从已安装的 PwshMCP 打开托盘", "it only accepts PwshMcp.Tray.exe from the install folder; open PwshMCP from its installed location");
+        public static string Invalid => T("执行器拒绝了这个请求", "it rejected the request");
+        public static string Protected => T("执行器不在受保护的安装位置运行", "it isn't running from the protected install location");
+        public static string Worker => T("授权已批准，但管理员命令执行器未能启动", "access was approved, but the admin worker didn't start");
+    }
+
     public static class Time
     {
         public const string Clock = "HH:mm", ClockSec = "HH:mm:ss";
@@ -356,6 +404,7 @@ public static class Report
     public const string Keys = "copy", Holes = "placeholders", Access = "access-key", Lex = "lexer", Wrap = "code-wrap", Fidelity = "copy-fidelity";
     public const string Layout = "layout", Clip = "clipped", Render = "render", Same = "same-in-both";
     public const string Main = "main", Approve = "approve", Name = "{0}-{1}-{2}{3}";
+    public const string Gate = "gate", Inline = "inline", Sent = "sent", Down = "down", Broken = "broken", Failed = "failed";
 }
 
 /// <summary>Broker error codes the tray translates (mirrors PwshMcp.Host Errors).</summary>

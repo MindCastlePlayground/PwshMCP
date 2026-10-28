@@ -93,14 +93,15 @@ public sealed class GrantVm : Bindable
 {
     readonly MainVm main;
     AccessInfo info = new();
-    string notice = ""; bool bad, isNew, divider;
+    string notice = ""; bool bad, isNew, divider, sending;
     DateTimeOffset now = DateTimeOffset.UtcNow;
+    Life life = Life.SignOut;
 
     public GrantVm(MainVm main, AccessInfo a)
     {
         this.main = main; info = a; Id = a.Id;
-        Approve = new Relay(() => main.Elevate(Cli.Approve, Id, this), () => IsPending);
-        Restart = new Relay(() => main.Elevate(Cli.Resume, Id, this), () => IsActive && !WorkerOn);
+        Approve = new Relay(Submit, () => IsPending && main.Ready && !sending);
+        Restart = new Relay(Resume, () => IsActive && !WorkerOn && main.Ready && !sending);
         Deny = new Confirm(() => Copy.Detail.Deny, () => Copy.Detail.ConfirmDeny, () => main.Act(Ops.Deny, Id, this, () => Copy.Detail.Denied, () => Copy.Verb.Deny), () => IsPending);
         Revoke = new Confirm(() => Copy.Detail.Revoke, () => Copy.Detail.ConfirmRevoke, () => main.Act(Ops.Revoke, Id, this, () => Copy.Detail.Revoked, () => Copy.Verb.Revoke), () => IsActive);
     }
@@ -149,10 +150,66 @@ public sealed class GrantVm : Bindable
 
     public bool IsNew { get => isNew; set => Set(ref isNew, value); }
     public bool Divider { get => divider; set => Set(ref divider, value); }
-    public string Notice { get => notice; private set => Set(ref notice, value); }
+    public string Notice { get => notice; private set { if (Set(ref notice, value)) { Raise(nameof(Footer)); Raise(nameof(ShowPick)); } } }
     public bool NoticeBad { get => bad; private set => Set(ref bad, value); }
     public void Say(string text, bool error) { NoticeBad = error; Notice = text; }
     public void Touch() => Raise(string.Empty);
+
+    // ---- inline approval: lifetime picked here, applied by the installed admin executor ----------------------------
+
+    public bool IsSignOut { get => life == Life.SignOut; set { if (value) Pick(Life.SignOut); } }
+    public bool IsHour { get => life == Life.OneHour; set { if (value) Pick(Life.OneHour); } }
+    public bool IsFour { get => life == Life.FourHours; set { if (value) Pick(Life.FourHours); } }
+    public bool IsToday { get => life == Life.Today; set { if (value) Pick(Life.Today); } }
+    public void Pick(Life l) { if (sending) return; life = l; Raise(string.Empty); }
+    public Life Life => life;
+    public DateTimeOffset? Until => Lives.End(life);
+    public double LifeSpan => Lives.Span(life);
+    public string LifeText => Until is { } e ? string.Format(Copy.Inline.Until, Fmt.Full(e)) : Copy.Inline.UntilSignOut;
+    public string LifeNote => Until is { } e ? Fmt.Left(e) : Copy.Inline.SignOutNote;
+    /// <summary>Outcome first; otherwise a pending request says why it can't be approved, or (ShowPick) echoes the chosen lifetime beside Approve.</summary>
+    public string Footer => string.IsNullOrEmpty(notice) && IsPending && main.GateBad ? Copy.Gate.Head : notice;
+    public bool ShowPick => string.IsNullOrEmpty(notice) && IsPending && !main.GateBad;
+    public string Picked => string.Format(Copy.Inline.Picked, LifeText);
+    public bool CanApprove => main.Ready && !sending;
+    public string Allows => string.Format(Copy.Inline.Allows, Client);
+    public bool GateBad => main.GateBad;
+    public string GateBody => main.GateBody;
+    public string GateAt => main.GateAt;
+    public ICommand Recheck => main.Recheck;
+    public bool Sending { get => sending; private set { if (Set(ref sending, value)) { Raise(nameof(CanPick)); Raise(nameof(CanApprove)); Raise(nameof(ApproveText)); Raise(nameof(RestartText)); CommandManager.InvalidateRequerySuggested(); } } }
+    public bool CanPick => !sending && main.Ready;
+    public string ApproveText => sending ? Copy.Inline.Sending : Copy.Detail.Approve;
+    public string RestartText => sending ? Copy.Inline.Resuming : Copy.Detail.RestartWorker;
+
+    /// <summary>One click, one exchange. Success only when the executor returns the grant as Active; anything else leaves the request waiting.</summary>
+    public async Task Submit()
+    {
+        if (sending || !IsPending) return;
+        Sending = true; Say("", false);
+        try
+        {
+            var r = await main.Admin(AdminOp.Approve, Id, Until);
+            if (!r.Ok) Say(string.Format(Copy.Inline.Failed, Fmt.Err(r)), true);
+            else if (r.Grant?.State != AccessState.Active) Say(string.Format(Copy.Inline.NotActive, r.Grant is { } g ? Fmt.Name(g.State) : Copy.Err.NoResponse), true);
+            else main.Approved(Id);
+        }
+        catch (Exception e) { Say(string.Format(Copy.Inline.Failed, e is UnauthorizedAccessException ? Copy.Gate.Untrusted : Fmt.Err(e)), true); }
+        finally { Sending = false; }
+    }
+
+    async Task Resume()
+    {
+        if (sending) return;
+        Sending = true; Say("", false);
+        try
+        {
+            var r = await main.Admin(AdminOp.Resume, Id, null);
+            Say(r.Ok ? Copy.Inline.Resumed : string.Format(Copy.Inline.ResumeFailed, Fmt.Err(r)), !r.Ok);
+        }
+        catch (Exception e) { Say(string.Format(Copy.Inline.ResumeFailed, e is UnauthorizedAccessException ? Copy.Gate.Untrusted : Fmt.Err(e)), true); }
+        finally { Sending = false; }
+    }
 
     public void Update(AccessInfo a, IReadOnlyList<JobInfo> jobs)
     {
@@ -236,17 +293,20 @@ public sealed class JobVm : Bindable
 public sealed class MainVm : Bindable
 {
     readonly Monitor monitor;
-    readonly string? backend;
+    readonly Coord coord;
     readonly HashSet<string> seen = [];
+    readonly HashSet<string> handoff = [];
     Status status;
+    GateInfo gate;
     Tab tab = Tab.Requests;
     GrantVm? selReq, selAcc; JobVm? selTask;
 
-    public MainVm(Monitor monitor, string? backend)
+    public MainVm(Monitor monitor, Coord coord)
     {
-        this.monitor = monitor; this.backend = backend; status = monitor.Current;
+        this.monitor = monitor; this.coord = coord; status = monitor.Current; gate = coord.Current;
         RevokeAll = new Confirm(() => Copy.Header.RevokeAll, () => Copy.Header.ConfirmAll, RevokeEvery, () => Online && ActiveCount > 0);
         Retry = new Relay(monitor.Retry, () => !Online);
+        Recheck = new Relay(coord.Retry, () => !Ready);
     }
 
     public ObservableCollection<GrantVm> Requests { get; } = [];
@@ -254,6 +314,40 @@ public sealed class MainVm : Bindable
     public ObservableCollection<JobVm> Tasks { get; } = [];
     public Confirm RevokeAll { get; }
     public ICommand Retry { get; }
+    public ICommand Recheck { get; }
+
+    // ---- admin executor gate (separate from the broker connection) ------------------------------------------------
+
+    public GateInfo Gate => gate;
+    /// <summary>New approvals need both the broker and the installed admin executor.</summary>
+    public bool Ready => gate.Ready && Online;
+    public bool GateOk => gate.Ready;
+    public bool GateBad => gate.Gate is Tray.Gate.Down or Tray.Gate.Broken;
+    public string GateTitle => gate.Gate switch { Tray.Gate.Ready => Copy.Gate.Ready, Tray.Gate.Down => Copy.Gate.Down, Tray.Gate.Broken => Copy.Gate.Broken, _ => Copy.Gate.Checking };
+    public Tone GateTone => gate.Gate switch { Tray.Gate.Ready => Tone.On, Tray.Gate.Checking => Tone.Wait, _ => Tone.Bad };
+    public string GateBody => gate.Gate == Tray.Gate.Broken ? string.Format(Copy.Gate.BrokenBody, gate.Detail) : Copy.Gate.DownBody;
+    public string GateAt => gate.At is { } at ? string.Format(Copy.Gate.Checked, Fmt.ClockSec(at)) : "";
+    public string? GateTip => GateBad ? GateBody : null;
+
+    public void Apply(GateInfo g)
+    {
+        var was = gate;
+        gate = g;
+        Raise(nameof(Gate)); Raise(nameof(Ready)); Raise(nameof(GateOk)); Raise(nameof(GateBad)); Raise(nameof(GateTitle)); Raise(nameof(GateTone)); Raise(nameof(GateBody)); Raise(nameof(GateAt)); Raise(nameof(GateTip));
+        // Only the checked-at time changes on a steady poll; rebind the detail pane when the state itself moves.
+        if (was.Gate != g.Gate || was.Detail != g.Detail) { foreach (var r in Requests.Concat(Access)) r.Touch(); CommandManager.InvalidateRequerySuggested(); }
+        else if (GateBad) selReq?.Touch();
+    }
+
+    /// <summary>Approve/Resume through the admin executor. Only reachable from a button click; never opens a Windows prompt.</summary>
+    public async Task<AdminResponse> Admin(AdminOp op, string id, DateTimeOffset? end)
+    {
+        try { return await coord.Send(op, id, end); }
+        finally { monitor.Retry(); }
+    }
+
+    /// <summary>The request became Active: follow it to Access on the next snapshot so the outcome and its band are visible.</summary>
+    public void Approved(string id) { handoff.Add(id); monitor.Retry(); }
 
     public Status Status => status;
     public bool Online => status.Conn == Conn.Online;
@@ -313,6 +407,11 @@ public sealed class MainVm : Bindable
             if (selReq is null && Requests.Count > 0) SelReq = Requests[0];
             if (selAcc is not null && !Access.Contains(selAcc)) SelAcc = null;
             if (selTask is not null && !Tasks.Contains(selTask)) SelTask = null;
+            foreach (var g in Access.Where(a => handoff.Remove(a.Id)).ToList())
+            {
+                g.Say(Copy.Inline.Done, false);
+                SelAcc = g; Tab = Tab.Access;
+            }
         }
         Raise(string.Empty);
     }
@@ -371,15 +470,7 @@ public sealed class MainVm : Bindable
 
     /// <summary>Synthetic snapshot for the offline self-test and render check; never sent anywhere.</summary>
     public void Seed(Status s, Tab t) { Viewing = false; Apply(s); Tab = t; Raise(string.Empty); }
-
-    /// <summary>Opens the elevated approval/resume window. Only reachable from a button click.</summary>
-    public async Task Elevate(string flag, string id, GrantVm g)
-    {
-        g.Say("", false);
-        var (res, err) = await Launch.Elevated(flag, id, backend);
-        if (res == Uac.Cancelled) g.Say(Copy.Detail.UacCancelled, false);
-        else if (res == Uac.Failed) g.Say(string.Format(Copy.Detail.UacFailed, err), true);
-    }
+    public void Seed(GateInfo g) => coord.Seed(g);
 
     public async Task<(int ok, string? error)> RevokeActive()
     {

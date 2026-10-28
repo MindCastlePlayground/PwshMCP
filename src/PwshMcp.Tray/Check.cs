@@ -231,7 +231,13 @@ public static class Check
         Theme.Fonts(Application.Current.Resources);
         var tag = L.Tag(l);
 
-        var vm = new MainVm(new Monitor(null, _ => { }), null);
+        // Fake admin transport: records what would be sent and answers from `reply`. No pipe is opened and Start() is never called.
+        var sent = new List<AdminRequest>();
+        var reply = Task.FromResult(new AdminResponse { Ready = true });
+        MainVm? vm = null;
+        var coord = new Coord(g => vm?.Apply(g), (r, _) => { sent.Add(r); return reply; });
+        vm = new MainVm(new Monitor(null, _ => { }), coord);
+        vm.Seed(new GateInfo(Gate.Ready, "", Now));
         var main = new MainWindow(vm);
         var host = Detach(main, K.Ground);
         foreach (var t in new[] { Tab.Requests, Tab.Access, Tab.Tasks })
@@ -246,6 +252,7 @@ public static class Check
             Shared(host, $"{Report.Main} {tag} {t}", SharedOn[t]);
         }
         Note(vm.Requests.Count > 0 && vm.Access.Count > 0 && vm.Tasks.Count > 0, Report.Layout, $"{Report.Main} {tag} sample data loaded");
+        Inline(vm, main, host, sent, r => reply = r, tag, dir);
 
         var avm = new ApproveVm("grant-pending-0001", null, false);
         var s = Snap();
@@ -263,7 +270,124 @@ public static class Check
         }
     }
 
-    static readonly int[] CodeWidths = [360, 900];
+    static readonly int[] CodeWidths = [360, 900], GateWidths = [720, 1000];
+
+    static PropertyInfo Inl(string n) => typeof(Copy.Inline).GetProperty(n)!;
+    static PropertyInfo Gat(string n) => typeof(Copy.Gate).GetProperty(n)!;
+
+    /// <summary>
+    /// Inline approval against the fake transport: executor online/offline, chosen lifetime sent, failures kept in place and retryable,
+    /// duplicate clicks blocked while sending. Nothing here can grant anything: the transport is a local lambda.
+    /// </summary>
+    static void Inline(MainVm vm, MainWindow main, Border host, List<AdminRequest> sent, Action<Task<AdminResponse>> answer, string tag, string? dir)
+    {
+        void Fresh(GateInfo g)
+        {
+            vm.Seed(new Status(Conn.Online, Snap(), Now, "", true, true), Tab.Requests);
+            vm.SelReq = vm.Requests.FirstOrDefault();
+            vm.Seed(g);
+            main.detail.BeginAnimation(UIElement.OpacityProperty, null);
+            main.rise.BeginAnimation(TranslateTransform.YProperty, null);
+        }
+        var what = $"{Report.Inline} {tag}";
+
+        // Executor online: card with lifetime picks, Approve enabled.
+        Fresh(new GateInfo(Gate.Ready, "", Now));
+        var req = vm.SelReq!;
+        Note(req.Approve.CanExecute(null) && !req.GateBad, Report.Gate, $"{what} ready: approve enabled");
+        Shared(Lay2(host, GateWidths[0], $"{what} ready", dir, Report.Gate, tag, $"{Report.Inline}-{GateWidths[0]}"), $"{what} ready",
+            [Inl(nameof(Copy.Inline.Head)), Inl(nameof(Copy.Inline.Lasts))]);
+        // The card itself, scrolled into view the way the footer lifetime link does, at minimum and default width.
+        req.Pick(Life.FourHours);
+        foreach (var w in GateWidths)
+        {
+            Lay(host, w, MainHeight, $"{what} card {w}px", null, Report.Gate, tag, "");
+            Note(Reveal(host), Report.Layout, $"{what} card reachable by scrolling at {w}px");
+            Lay2(host, w, $"{what} card {w}px", dir, Report.Gate, tag, $"{Report.Inline}-card-{w}");
+        }
+        Reveal(host, true);
+        req.Pick(Life.SignOut);
+
+        // Executor offline / failing checks: guidance in the same slot, Approve disabled, no fallback.
+        foreach (var (g, name) in new[] { (Gate.Down, Report.Down), (Gate.Broken, Report.Broken) })
+        {
+            Fresh(new GateInfo(g, g == Gate.Broken ? Copy.Gate.Untrusted : Copy.Gate.NoPipe, Now));
+            req = vm.SelReq!;
+            Note(!req.Approve.CanExecute(null) && req.GateBad && vm.Recheck.CanExecute(null), Report.Gate, $"{what} {name}: approve disabled, recheck offered");
+            foreach (var w in GateWidths)
+            {
+                var h = Lay2(host, w, $"{what} {name} {w}px", dir, Report.Gate, tag, $"{name}-{w}");
+                Shared(h, $"{what} {name} {w}px", [Gat(nameof(Copy.Gate.Head)), Gat(nameof(Copy.Gate.Recheck))]);
+            }
+        }
+
+        // Chosen lifetime travels with Approve; a refusal keeps the request waiting and retryable in place.
+        Fresh(new GateInfo(Gate.Ready, "", Now));
+        req = vm.SelReq!;
+        req.Pick(Life.OneHour);
+        answer(Task.FromResult(new AdminResponse { Ok = false, Error = AdminNames.Forbidden }));
+        sent.Clear();
+        req.Submit().GetAwaiter().GetResult();
+        var last = sent.LastOrDefault();
+        var hour = last?.ExpiresAt is { } e && Math.Abs((e - DateTimeOffset.UtcNow.AddHours(1)).TotalMinutes) < 2;
+        Note(sent.Count == 1 && last!.Op == AdminOp.Approve && last.Id == req.Id && hour, Report.Inline, $"{what} approve sends Op=Approve, Id, ExpiresAt≈1h");
+        Note(req.NoticeBad && req.IsPending && req.Approve.CanExecute(null) && req.Footer.Contains(Copy.Gate.Forbidden), Report.Inline, $"{what} refusal shown in place, still retryable");
+        Lay2(host, GateWidths[0], $"{what} {Report.Failed}", dir, Report.Inline, tag, $"{Report.Failed}-{GateWidths[0]}");
+
+        answer(Task.FromResult(new AdminResponse { Ok = true, Grant = Grant(req.Id, AccessState.Pending, "x") }));
+        req.Submit().GetAwaiter().GetResult();
+        Note(req.NoticeBad && req.IsPending, Report.Inline, $"{what} Ok without Active grant is not reported as approved");
+
+        req.Pick(Life.SignOut);
+        sent.Clear();
+        answer(Task.FromResult(new AdminResponse { Ok = true, Grant = Grant(req.Id, AccessState.Active, "x") }));
+        req.Submit().GetAwaiter().GetResult();
+        Note(sent.Count == 1 && sent[0].ExpiresAt is null && !req.NoticeBad, Report.Inline, $"{what} until sign-out sends no ExpiresAt; Active accepted");
+
+        // In flight: button turns busy, picks and a second click are blocked.
+        Fresh(new GateInfo(Gate.Ready, "", Now));
+        req = vm.SelReq!;
+        var hold = new TaskCompletionSource<AdminResponse>();
+        answer(hold.Task);
+        sent.Clear();
+        _ = req.Submit();
+        req.Pick(Life.Today);
+        _ = req.Submit();
+        Note(req.Sending && !req.Approve.CanExecute(null) && !req.CanPick && req.IsSignOut && sent.Count == 1, Report.Inline, $"{what} sending blocks duplicate approve and lifetime changes");
+        Lay2(host, GateWidths[0], $"{what} {Report.Sent}", dir, Report.Inline, tag, $"{Report.Sent}-{GateWidths[0]}");
+    }
+
+    static bool Reveal(Border host, bool back = false)
+    {
+        var issue = (Style)Application.Current.FindResource(K.Issue);
+        // IsVisible stays false in a never-shown tree; the template's own Visibility is what a shown window would honour.
+        var card = Find<Border>(host, b => b.Style == issue && b.Visibility == Visibility.Visible);
+        var sv = card is null ? null : Up<ScrollViewer>(card);
+        if (card is null || sv?.Content is not Visual body) return false;
+        sv.ScrollToVerticalOffset(back ? 0 : card.TransformToAncestor(body).Transform(new Point()).Y - 20);
+        host.UpdateLayout();
+        return true;
+    }
+
+    static T? Find<T>(DependencyObject d, Func<T, bool> ok) where T : DependencyObject
+    {
+        if (d is T t && ok(t)) return t;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            if (Find(VisualTreeHelper.GetChild(d, i), ok) is { } hit) return hit;
+        return null;
+    }
+
+    static T? Up<T>(DependencyObject d) where T : DependencyObject
+    {
+        for (var p = VisualTreeHelper.GetParent(d); p is not null; p = VisualTreeHelper.GetParent(p)) if (p is T t) return t;
+        return null;
+    }
+
+    static Border Lay2(Border host, int w, string what, string? dir, string kind, string tag, string size)
+    {
+        Lay(host, w, MainHeight, what, dir, kind, tag, size);
+        return host;
+    }
 
     static PropertyInfo Who(string n) => typeof(Copy.Who).GetProperty(n)!;
     static PropertyInfo Det(string n) => typeof(Copy.Detail).GetProperty(n)!;

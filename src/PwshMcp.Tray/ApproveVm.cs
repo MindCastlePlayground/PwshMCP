@@ -7,7 +7,7 @@ namespace PwshMcp.Tray;
 public enum Step { Loading, Ready, Blocked, Sending, Starting, Done, Failed }
 public enum Life { SignOut, OneHour, FourHours, Today }
 
-/// <summary>Elevated approve / resume flow. Reads one snapshot, freezes the request, and never reports Active without the broker saying so.</summary>
+/// <summary>Legacy elevated approve / resume flow, reachable only through an explicit --approve/--resume launch; the main window approves inline. Reads one snapshot, freezes the request, and never reports Active without the broker saying so.</summary>
 public sealed class ApproveVm : Bindable
 {
     readonly string id;
@@ -69,24 +69,9 @@ public sealed class ApproveVm : Bindable
     public bool IsToday { get => span == Life.Today; set { if (value) Pick(Life.Today); } }
     void Pick(Life s) { span = s; Raise(string.Empty); }
 
-    public DateTimeOffset? End => span switch
-    {
-        Life.OneHour => DateTimeOffset.Now.AddHours(1),
-        Life.FourHours => DateTimeOffset.Now.AddHours(4),
-        Life.Today => new DateTimeOffset(DateTime.Today.AddDays(1).AddMinutes(-1)),
-        _ => null
-    };
+    public DateTimeOffset? End => Lives.End(span);
     public DateTimeOffset Now => DateTimeOffset.UtcNow;
-    /// <summary>Band length proportional to the chosen duration against the longest bounded choice.</summary>
-    public double BandSpan
-    {
-        get
-        {
-            if (End is not { } e) return 1;
-            var longest = Math.Max(4, (new DateTimeOffset(DateTime.Today.AddDays(1)) - DateTimeOffset.Now).TotalHours);
-            return Math.Clamp((e - DateTimeOffset.Now).TotalHours / longest, 0.08, 1);
-        }
-    }
+    public double BandSpan => Lives.Span(span);
     public string EndText => End is { } e ? string.Format(Copy.Approve.EndsAt, Fmt.Full(e)) : Copy.Approve.SignOutNote;
 
     public async Task Load()

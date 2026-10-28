@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 
 namespace PwshMcp.Tray;
@@ -57,6 +59,24 @@ public partial class MainWindow : Window
             if (list.SelectedItem is { } item && list.ItemContainerGenerator.ContainerFromItem(item) is UIElement c) c.Focus();
             else list.Focus();
         });
+    }
+
+    /// <summary>Footer lifetime echo: scrolls the approval card into view and puts focus on the chosen lifetime.</summary>
+    void OnPicked(object sender, RoutedEventArgs e)
+    {
+        var issue = (Style)FindResource(K.Issue);
+        var card = Find<Border>(detail, b => b.Style == issue && b.IsVisible);
+        if (card is null) return;
+        card.BringIntoView();
+        Find<RadioButton>(card, r => r.IsChecked == true)?.Focus();
+    }
+
+    static T? Find<T>(DependencyObject d, Func<T, bool> ok) where T : DependencyObject
+    {
+        if (d is T t && ok(t)) return t;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            if (Find(VisualTreeHelper.GetChild(d, i), ok) is { } hit) return hit;
+        return null;
     }
 
     bool retired;

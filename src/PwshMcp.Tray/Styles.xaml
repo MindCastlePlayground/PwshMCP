@@ -246,6 +246,84 @@
     </Setter>
   </Style>
 
+  <!-- Inline lifetime picks: the approval-window choice, compact, wrapping so either language fits a two-column grid at minimum width. -->
+  <Style x:Key="{x:Static t:K.Pick}" TargetType="RadioButton" BasedOn="{StaticResource {x:Static t:K.Choice}}">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Margin" Value="0,0,6,6"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="bg" CornerRadius="8" Padding="10,8" BorderThickness="1" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Background="{DynamicResource {x:Static t:K.Panel}}">
+            <DockPanel>
+              <Grid Width="14" Height="14" Margin="0,0,9,0" VerticalAlignment="Center">
+                <Ellipse x:Name="ring" Stroke="{DynamicResource {x:Static t:K.Muted}}" StrokeThickness="1.5"/>
+                <Ellipse x:Name="dot" Width="6" Height="6" Fill="{DynamicResource {x:Static t:K.Accent}}" Visibility="Collapsed"/>
+              </Grid>
+              <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True">
+                <ContentPresenter.Resources><Style TargetType="AccessText"><Setter Property="TextWrapping" Value="Wrap"/></Style></ContentPresenter.Resources>
+              </ContentPresenter>
+            </DockPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="bg" Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="bg" Property="BorderBrush" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+              <Setter TargetName="bg" Property="Background" Value="{DynamicResource {x:Static t:K.AccentSoft}}"/>
+              <Setter TargetName="ring" Property="Stroke" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+              <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
+              <Setter Property="FontWeight" Value="SemiBold"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.55"/>
+              <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Approval card: the same raised card an issued grant uses, so approving visibly turns this card into that one. -->
+  <Style x:Key="{x:Static t:K.Issue}" TargetType="Border">
+    <Setter Property="Margin" Value="0,18,0,0"/>
+    <Setter Property="Padding" Value="20,18,14,16"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="Background" Value="{DynamicResource {x:Static t:K.Raised}}"/>
+  </Style>
+  <!-- Executor unavailable: same slot and shape, amber wash = waiting on something outside the tray. -->
+  <Style x:Key="{x:Static t:K.Blocked}" TargetType="Border">
+    <Setter Property="Margin" Value="0,18,0,0"/>
+    <Setter Property="Padding" Value="20,18,20,16"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="Background" Value="{DynamicResource {x:Static t:K.AmberSoft}}"/>
+  </Style>
+
+  <!-- Button glyph: shield at rest, a turning arc while the exchange is in flight. Content is the Sending flag. -->
+  <DataTemplate x:Key="{x:Static t:K.BusyTpl}">
+    <Grid Width="14" Height="14">
+      <Path x:Name="shield" Data="{StaticResource {x:Static t:K.Shield}}" Width="13" Height="14" Stretch="Uniform"
+            Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+      <Path x:Name="arc" Data="M7,1.5 A5.5,5.5 0 1 1 1.5,7" StrokeThickness="1.75" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"
+            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" RenderTransformOrigin="0.5,0.5">
+        <Path.RenderTransform><RotateTransform x:Name="spin"/></Path.RenderTransform>
+      </Path>
+    </Grid>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding}" Value="True">
+        <Setter TargetName="shield" Property="Visibility" Value="Collapsed"/>
+        <Setter TargetName="arc" Property="Visibility" Value="Visible"/>
+        <DataTrigger.EnterActions>
+          <BeginStoryboard x:Name="turning">
+            <Storyboard><DoubleAnimation Storyboard.TargetName="spin" Storyboard.TargetProperty="Angle" From="0" To="360" Duration="0:0:0.9" RepeatBehavior="Forever"/></Storyboard>
+          </BeginStoryboard>
+        </DataTrigger.EnterActions>
+        <DataTrigger.ExitActions><StopStoryboard BeginStoryboardName="turning"/></DataTrigger.ExitActions>
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
   <!-- List rows -->
   <Style x:Key="{x:Static t:K.Row}" TargetType="ListBoxItem">
     <Setter Property="Padding" Value="12,10"/>

@@ -4,7 +4,7 @@ Windows 本地 PowerShell MCP 与授权托盘。一次主动开启可信管理�
 
 [GitHub](https://github.com/MindCastlePlayground/PwshMCP) · [下载发布包](https://github.com/MindCastlePlayground/PwshMCP/releases)
 
-基线：[B1](docs/BASELINE.md)。开发计划：[DEVELOPMENT](docs/DEVELOPMENT.md)。设计：[可信会话](discussion/DESIGN-TRUSTED.md)。UI 设计与实现由 Claude 负责，接口对齐见 [UI-ALIGNMENT](docs/UI-ALIGNMENT.md)。
+基线：[B2](docs/BASELINE.md) 与 [0.4.0 契约](docs/UAC-0.4-CONTRACT.md)。开发计划：[DEVELOPMENT](docs/DEVELOPMENT.md)。UI 设计与实现由 Claude 负责，见 [0.4.0 界面说明](docs/UI-0.4.0.md)。
 
 ## 构建与运行
 
@@ -21,7 +21,7 @@ artifacts/app/PwshMcp.Tray.exe --show
 
 列表优先展示任务名、命令描述和客户端显示名，诊断 ID 默认折叠；审批处仍直接显示真实授权范围。命令视图按宽度折行并提供 PowerShell 高亮，“复制命令”保留原始文本。超过 20000 字符的代码以纯文本显示；混合换行的部分选区会统一换行风格，复制全部保持原文。
 
-离线布局与代码控件检查：`dotnet artifacts/package/PwshMcp.Tray.dll --render-check artifacts/ui-0.3.0`。该入口使用合成数据，不显示窗口、不连接 Broker 或触发 UAC；报告与 PNG 输出到指定目录。
+离线布局与代码控件检查：`dotnet artifacts/package/PwshMcp.Tray.dll --render-check artifacts/ui-0.4.0`。该入口使用合成数据，不显示窗口、不连接 Broker 或触发 UAC；报告与 PNG 输出到指定目录。
 
 ## MCP 配置
 
@@ -69,4 +69,4 @@ artifacts/app/PwshMcp.Tray.exe --show
 
 自动化覆盖执行环境、MCP、管道、去重、取消及未提权不能批准。真实 UAC、锁屏/注销、Explorer 重启、不同账号和服务安装单独验收，结果见后续验收记录。代码构建不等于这些路径已经通过。
 
-本轮记录见 [ACCEPTANCE](docs/ACCEPTANCE.md)。最终包位于 `artifacts/package`，当前已打开的验收实例位于 `artifacts/app`；切换到最终包前先从旧托盘退出，避免单实例机制仍显示旧窗口。可用 `scripts/build.ps1 -Output artifacts/package` 重建；安装该包时使用 `scripts/install.ps1 -Source artifacts/package`。
+本轮记录见 [0.4.0 验收](docs/ACCEPTANCE-0.4.0.md)，旧版记录见 [ACCEPTANCE](docs/ACCEPTANCE.md)。使用 `scripts/build.ps1 -Output artifacts/package` 构建，通过上文的 `install-desktop.ps1` 安装桌面模式；切换前先结束运行中的命令并退出旧托盘，避免单实例机制仍显示旧窗口。

@@ -61,6 +61,7 @@ public static class Fmt
         OperationCanceledException or TimeoutException => Copy.Err.Timeout,
         FileNotFoundException => Copy.Err.NoPipe,
         IOException io when io.Message == Names.WrongBroker => string.Format(Copy.Err.WrongBroker, Launch.HostPath(Launch.Backend)),
+        IOException { Message: AdminNames.Offline or AdminNames.Invalid } io => Err(new AdminResponse { Ok = false, Error = io.Message }),
         IOException io => io.Message,
         _ => string.Format(Copy.Err.Generic, e.Message)
     };
@@ -70,6 +71,17 @@ public static class Fmt
         Codes.DescriptionRequired => Copy.Err.DescriptionRequired,
         Codes.TaskNameRequired => Copy.Err.TaskNameRequired,
         var e when string.IsNullOrWhiteSpace(e) => Copy.Err.NoResponse,
+        var e => e
+    };
+
+    public static string Err(AdminResponse r) => r.Error switch
+    {
+        AdminNames.Offline => Copy.Gate.Offline,
+        AdminNames.Forbidden => Copy.Gate.Forbidden,
+        AdminNames.Invalid => Copy.Gate.Invalid,
+        AdminNames.Protected => Copy.Gate.Protected,
+        AdminNames.Worker => Copy.Gate.Worker,
+        var e when string.IsNullOrWhiteSpace(e) => r.Ok ? Copy.Gate.NotReady : Copy.Err.NoResponse,
         var e => e
     };
 

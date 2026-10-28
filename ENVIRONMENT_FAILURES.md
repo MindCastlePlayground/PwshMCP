@@ -33,3 +33,4 @@
 - 2026-10-28：PowerShell 命令行中使用了 Bash 风格的 `{a,b}` 路径展开，触发 ParserError（“参数列表中缺少参数”）；后续使用 PowerShell 数组或逐个明确路径，不再使用该写法。
 - 2026-10-28：apply_patch 同一补丁中删除并新增同一路径被拒绝（multiple operations target）；改为单个 Update File，原文件未被更改。
 - 2026-10-28：gh release create 的 --target 使用短 SHA 返回 HTTP 422 target_commitish invalid；改为 git rev-parse HEAD 取得完整 SHA，后续发布固定使用完整 SHA。
+- 2026-10-28 本机安装：默认沙箱首条读取仍报 CreateProcessAsUserW failed: 5；同范围 require_escalated 成功。新托盘启动被旧 artifacts/app 实例的单实例机制拦截；先核对旧 broker 无活动任务和有效授权，再关闭旧实例、启动安装版，并回读进程路径验证。

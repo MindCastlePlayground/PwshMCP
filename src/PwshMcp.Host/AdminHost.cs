@@ -64,8 +64,9 @@ internal sealed class AdminHost
         acl.AddAccessRule(new(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
         acl.AddAccessRule(new(new SecurityIdentifier(sid), PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize, AccessControlType.Allow));
         // High integrity process creates pipe; explicitly permit medium integrity clients to connect.
-        acl.SetSecurityDescriptorSddlForm(acl.GetSecurityDescriptorSddlForm(AccessControlSections.Access) + "S:(ML;;NW;;;ME)", AccessControlSections.All);
-        return NamedPipeServerStreamAcl.Create(AdminNames.Pipe, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096, acl);
+        var pipe = NamedPipeServerStreamAcl.Create(AdminNames.Pipe, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096, acl, HandleInheritability.None, PipeAccessRights.TakeOwnership);
+        try { PipeLabel.Apply(pipe); return pipe; }
+        catch { pipe.Dispose(); throw; }
     }
 
     async Task Serve(NamedPipeServerStream pipe, CancellationToken stop)

@@ -3,5 +3,6 @@
 artifacts/
 .vs/
 *.user
+__pycache__/
 discussion/*.json
 discussion/*.stderr.txt

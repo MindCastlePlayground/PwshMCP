@@ -33,3 +33,12 @@
 - Release package built successfully in `artifacts/recovery-package`. Actual installation and TaskHub acceptance still require the user to approve the concrete installation request in the installed tray.
 - The actual release package also passed all 815 offline self-tests after publication (`artifacts/recovery-package-check/ui-selftest.txt`). Installation request title: `安装离线恢复界面并接入 TaskHub`; submitted and waiting for tray approval.
 - The old installed coordinator exited again with task result 1 during development, and was restarted through its existing scheduled task without UAC. This reinforces the need to validate the replacement runtime rather than equating a restart with a permanent fix.
+
+## Installation and regression findings (2026-10-29)
+
+- The approved whole upgrade completed at `2026-10-28T17:25:24Z`; protected receipt and binary hashes confirmed installation. The trusted Broker/executor probe and administrator boundary tests passed.
+- Real tray crash recovery failed. TaskHub continued reporting the dead tray PID as running. A subsequent tray output-redirection patch was installed at `2026-10-28T17:32:53Z`, but the same acceptance still failed. Do not treat `dc6f4e0` as a verified daemon recovery fix.
+- The user reported `CompositionTarget.SetRootVisual` / `MainWindow.Present` throwing `ArgumentException`. A thread-local CBT hook that reenters `Present` during HWND creation reproduced the same stack; reentry at `SourceInitialized` alone did not.
+- `c182f9f` guards the full presentation operation against reentry. The same native regression now passes, including hide/show and close/reopen. The rebuilt release package passed all 815 offline self-tests. This patch is not yet installed.
+- TaskHub restart run `ce6fd6fd-d5b5-48f5-9647-305ee24c3464` restored tray PID 91304 under host PID 67616. Manual recovery works; automatic recovery remains unaccepted pending the host fix.
+- Claude delegation is temporarily disabled at the user's request.

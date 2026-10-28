@@ -1,6 +1,8 @@
 # TaskHub 守护接入状态
 
-2026-10-29：实现已提交并推送 `ccc21c4`；尚未执行安装。
+2026-10-29 最新状态：已安装，手动重启成功，自动崩溃恢复验收失败，正在修复。下文保留初次安装前记录；现场结果以 `tasks/recovery-acceptance.md` 为准。
+
+初次安装前记录：实现已提交并推送 `ccc21c4`；当时尚未执行安装。
 
 - `scripts/install-taskhub.ps1`：管理员安装入口，配置和启动项备份、普通权限 daemon 任务、失败回退。
 - `scripts/check-taskhub.py`：真实 Hub 状态和可选托盘异常恢复检查。

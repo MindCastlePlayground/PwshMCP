@@ -8,6 +8,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Rectangle = System.Windows.Shapes.Rectangle;
 using PwshMcp.Shared;
 
 namespace PwshMcp.Tray;
@@ -165,6 +166,8 @@ public static class Check
             $"2000-char line wraps: 260px→{narrow.Height:0}px tall, 900px→{wide.Height:0}px tall");
         var path = View(LongPath, 260).Box.DesiredSize;
         Note(path.Width <= 260, Report.Wrap, $"long path without spaces stays within 260px ({path.Width:0})");
+        var csv = Find<ScrollViewer>(View(LongLine, 260).Box, _ => true);
+        Note(csv?.Style == Application.Current.FindResource(K.Scroll), Report.Scroll, "code view scrolls in the shared stable-gutter style");
     }
 
     // ---- windows: layout in both languages, optional PNGs ---------------------------------------------------------
@@ -254,6 +257,7 @@ public static class Check
         }
         Note(vm.Requests.Count > 0 && vm.Access.Count > 0 && vm.Tasks.Count > 0, Report.Layout, $"{Report.Main} {tag} sample data loaded");
         Ended(vm, main, host, tag, dir);
+        Scrolls(vm, main, host, tag, dir);
         Inline(vm, main, host, sent, r => reply = r, tag, dir);
 
         var avm = new ApproveVm("grant-pending-0001", null, false);
@@ -315,6 +319,108 @@ public static class Check
             Note(pick is { IsSelected: true } && list.SelectedItem == vm.SelAcc && rows.Count(r => r.IsSelected) == 1 && Heads(pick).Count() == 0,
                 Report.Ended, $"{what} selecting {(end is null ? "a live" : "an ended")} grant selects exactly its row; focus can reach it by container");
             if (any) Shared(host, what, [typeof(Copy.Tabs).GetProperty(nameof(Copy.Tabs.Ended))!]);
+        }
+    }
+
+    /// <summary>Gutter = K.Scroll bar width; Ring = how far pm.focusVisual draws outside a row; RowWidth = sidebar row width before 0.4.0's scroll pass, bar hidden.</summary>
+    const double Gutter = 10, Ring = 3, RowWidth = 310;
+
+    static Snapshot Long() => new()
+    {
+        Grants = [.. Enumerable.Range(0, 24).Select(i => Grant($"grant-wait-{i:00}", AccessState.Pending, $"待批准任务 {i} / Pending task {i}")),
+                  .. Enumerable.Range(0, 30).Select(i => Grant($"grant-acc-{i:00}", i % 3 == 0 ? AccessState.Expired : AccessState.Active, $"授权任务 {i} / Access task {i}"))],
+        Jobs = [.. Enumerable.Range(0, 40).Select(i => Job($"job-{i:00}", i % 2 == 0 ? JobState.Succeeded : JobState.Running, null, Spec($"任务描述 {i} / Task description {i}", Samples[1])))],
+        ElevatedBroker = true,
+    };
+
+    static Rect Box(FrameworkElement e, Visual to) => e.TransformToVisual(to).TransformBounds(new Rect(e.RenderSize));
+
+    /// <summary>
+    /// Overflowing sidebar lists and detail panes: styled 10px bar in a stable gutter, rows the same size with and without overflow,
+    /// first/last rows (selected) whole with room for the focus ring, edge rules only where content continues, footer never covered.
+    /// </summary>
+    static void Scrolls(MainVm vm, MainWindow main, Border host, string tag, string? dir)
+    {
+        var lists = new Dictionary<Tab, ListBox> { [Tab.Requests] = main.reqList, [Tab.Access] = main.accList, [Tab.Tasks] = main.taskList };
+        void Settle() { main.detail.BeginAnimation(UIElement.OpacityProperty, null); main.rise.BeginAnimation(TranslateTransform.YProperty, null); }
+        void Pick(Tab t, bool first)
+        {
+            if (t == Tab.Requests) vm.SelReq = first ? vm.Requests.First() : vm.Requests.Last();
+            else if (t == Tab.Access) vm.SelAcc = first ? vm.Access.First() : vm.Access.Last();
+            else vm.SelTask = first ? vm.Tasks.First() : vm.Tasks.Last();
+            Settle();
+        }
+
+        // At rest (short lists, bar hidden): the reference row size each overflowing list must keep.
+        var rest = new Dictionary<Tab, Size>();
+        foreach (var (t, list) in lists)
+        {
+            vm.Seed(new Status(Conn.Online, Snap(), Now, "", true, true), t);
+            Pick(t, true);
+            Lay(host, MainWidths[1], MainHeight, $"{Report.Scroll} {tag} {t} short", null, Report.Scroll, tag, "");
+            var sv = Find<ScrollViewer>(list, _ => true)!;
+            rest[t] = Rows(list).First().RenderSize;
+            Info(Report.Scroll, $"{t} short row x {Box(Rows(list).First(), host).Left:0} gi {(Up<GroupItem>(Rows(list).First()) is { } gi ? Box(gi, host).Left + "/" + gi.ActualWidth : "-")}");
+            Note(sv.ScrollableHeight == 0 && Math.Abs(rest[t].Width - RowWidth) < 0.5, Report.Scroll,
+                $"{Report.Scroll} {tag} {t} short list: no overflow, row {rest[t].Width:0}×{rest[t].Height:0.#} (pre-change width {RowWidth})");
+        }
+
+        var tabs = (FrameworkElement)VisualTreeHelper.GetParent(Find<UniformGrid>(host, g => g.Columns == 3 && g.Children.OfType<RadioButton>().Any())!);
+        var style = (Style)Application.Current.FindResource(K.Scroll);
+        foreach (var (t, list) in lists)
+        {
+            vm.Seed(new Status(Conn.Online, Long(), Now, "", true, true), t);
+            foreach (var w in MainWidths)
+                foreach (var top in new[] { true, false })
+                {
+                    var edge = top ? Report.Top : Report.Bottom;
+                    var what = $"{Report.Scroll} {tag} {t} {edge} {w}px";
+                    Pick(t, top);
+                    Lay(host, w, MainHeight, what, null, Report.Scroll, tag, "");
+                    var sv = Find<ScrollViewer>(list, _ => true)!;
+                    if (top) sv.ScrollToTop(); else sv.ScrollToEnd();
+                    host.UpdateLayout(); host.UpdateLayout();
+                    var scp = Find<ScrollContentPresenter>(sv, _ => true)!;
+                    var bar = Find<ScrollBar>(sv, b => b.Orientation == Orientation.Vertical && Up<ScrollViewer>(b) == sv)!;
+                    var view = new Rect(scp.RenderSize);
+                    var seen = Rows(list).Where(r => Shown(r) && Box(r, scp).IntersectsWith(view)).ToList();
+                    var pick = (ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(list.SelectedItem);
+                    var rb = Box(pick, scp);
+                    var rules = All<Rectangle>(sv).Where(r => Up<ScrollContentPresenter>(r) is null && r.Height == 1).ToList();
+                    var shown = rules.Select(r => r.VerticalAlignment == VerticalAlignment.Top ? (Edge: Report.Top, On: r.Visibility == Visibility.Visible) : (Edge: Report.Bottom, On: r.Visibility == Visibility.Visible)).ToList();
+                    double tx = Box(tabs, host).Left, rx = Box(seen[0], host).Left;
+
+                    Note(sv.ScrollableHeight > 0 && sv.Style == style && bar.Visibility == Visibility.Visible && Math.Abs(bar.ActualWidth - Gutter) < 0.5,
+                        Report.Scroll, $"{what} overflows; themed bar shown in the {Gutter}px gutter ({bar.ActualWidth:0}px)");
+                    Note(seen.All(r => Math.Abs(r.RenderSize.Width - rest[t].Width) < 0.5),
+                        Report.Scroll, $"{what} rows keep their at-rest width {rest[t].Width:0} (no jump when the bar appears): {string.Join(",", seen.Select(r => r.RenderSize.Width).Distinct())}");
+                    Note(Math.Abs(seen[0].RenderSize.Height - rest[t].Height) < 0.5, Report.Scroll, $"{what} row height kept ({seen[0].RenderSize.Height:0.#} vs {rest[t].Height:0.#})");
+                    Note(Math.Abs(rx - tx) < 1.5, Report.Scroll, $"{what} rows start under the tab strip (row x {rx:0}, tabs x {tx:0})");
+                    Note(seen.All(r => Box(r, scp) is var b && b.Left - Ring >= 0 && b.Right + Ring <= view.Width) && Box(bar, scp).Left >= rb.Right + Ring,
+                        Report.Scroll, $"{what} focus ring room left/right of every row; bar clear of rows");
+                    Note(pick.IsSelected && rb.Top - Ring >= 0 && rb.Bottom + Ring <= view.Height, Report.Scroll,
+                        $"{what} selected {edge} row whole, focus ring inside the viewport ({rb.Top:0}..{rb.Bottom:0} of {view.Height:0})");
+                    Note(rules.Count == 2 && shown.All(s => s.On == (s.Edge == Report.Top ? !top : top)), Report.Scroll,
+                        $"{what} edge rules only where content continues ({string.Join(",", shown.Select(s => $"{s.Edge}={s.On}"))})");
+                    Info(Report.Scroll, $"{what} row {rest[t].Width:0}×{rest[t].Height:0.#}, viewport {view.Width:0}×{view.Height:0}, bar {bar.ActualWidth:0}px");
+                    if (dir is not null) Lay(host, w, MainHeight, what, dir, Report.Scroll, tag, $"{t}-{edge}-{w}");
+
+                    // Detail pane beside it: same gutter, content scrolled to its end clears the footer rule.
+                    var dsv = Find<ScrollViewer>(main.detail, s => s.Style == style)!;
+                    var dscp = Find<ScrollContentPresenter>(dsv, _ => true)!;
+                    var dbar = Find<ScrollBar>(dsv, b => b.Orientation == Orientation.Vertical && Up<ScrollViewer>(b) == dsv)!;
+                    var foot = ((Grid)VisualTreeHelper.GetParent(dsv)).Children.OfType<Border>().First(b => Grid.GetRow(b) == 1);
+                    if (top) dsv.ScrollToTop(); else dsv.ScrollToEnd();
+                    host.UpdateLayout(); host.UpdateLayout();
+                    var body = (FrameworkElement)dsv.Content;
+                    var bb = Box(body, dscp);
+                    var dwhat = $"{Report.Detail} {tag} {t} {edge} {w}px";
+                    Note(Math.Abs(dbar.ActualWidth - Gutter) < 0.5 && Math.Abs(dscp.ActualWidth + Gutter - dsv.ActualWidth) < 0.5 && dbar.Visibility != Visibility.Collapsed,
+                        Report.Scroll, $"{dwhat} gutter reserved ({dbar.Visibility}), content {dscp.ActualWidth:0} of {dsv.ActualWidth:0}");
+                    Note(Box(dbar, host).Right <= w + 0.5 && Box(dsv, host).Bottom <= Box(foot, host).Top + 0.5 && (top || dsv.ScrollableHeight == 0 || bb.Bottom + body.Margin.Bottom <= dscp.ActualHeight + 0.5),
+                        Report.Scroll, $"{dwhat} bar on screen, footer not overlapped; end of content reachable");
+                    if (dir is not null && !top && dsv.ScrollableHeight > 0) Lay(host, w, MainHeight, dwhat, dir, Report.Detail, tag, $"{t}-{edge}-{w}");
+                }
         }
     }
 

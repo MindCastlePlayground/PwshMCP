@@ -111,6 +111,19 @@ public static class All
     public static readonly IValueConverter Not = new NotConv();
     /// <summary>Accessible name from button content: access-key markers stripped ("撤销(_V)" → "撤销(V)"), icon panels reduced to their AccessText.</summary>
     public static readonly IValueConverter Plain = new PlainConv();
+    /// <summary>Scroll edge rules: Above from VerticalOffset; Below from (VerticalOffset, ScrollableHeight). Works in pixel and item units.</summary>
+    public static readonly IValueConverter Above = new AboveConv();
+    public static readonly IMultiValueConverter Below = new BelowConv();
+    sealed class AboveConv : IValueConverter
+    {
+        public object Convert(object v, Type t, object p, CultureInfo c) => v is double o && o > 0.5 ? Visibility.Visible : Visibility.Hidden;
+        public object ConvertBack(object v, Type t, object p, CultureInfo c) => Binding.DoNothing;
+    }
+    sealed class BelowConv : IMultiValueConverter
+    {
+        public object Convert(object[] v, Type t, object p, CultureInfo c) => v is [double o, double s] && o < s - 0.5 ? Visibility.Visible : Visibility.Hidden;
+        public object[] ConvertBack(object v, Type[] t, object p, CultureInfo c) => [];
+    }
     sealed class AllVis : IMultiValueConverter
     {
         public object Convert(object[] v, Type t, object p, CultureInfo c) => v.All(x => x is true) ? Visibility.Visible : Visibility.Collapsed;

@@ -27,6 +27,8 @@ public static class Names
     public const string ZhTag = "zh", EnTag = "en", ZhCulture = "zh-CN", EnCulture = "en-US";
     public const string ArtifactDir = "artifacts", ArtifactSub = "ui-0.4.0", Report = "ui-selftest.txt", PngExt = ".png";
     public const string Armed = "armed";
+    /// <summary>ScrollViewer Tag that turns on the "more above / more below" edge rules (sidebar lists).</summary>
+    public const string Rules = "rules";
     /// <summary>Automation id of the footer lifetime link that anchors the lifetime popup.</summary>
     public const string LifeBtn = "pm.lifeBtn";
 }
@@ -412,6 +414,7 @@ public static class Report
     public const string Gate = "gate", Inline = "inline", Sent = "sent", Down = "down", Broken = "broken", Failed = "failed";
     public const string Pop = "popup";
     public const string Ended = "ended", Mixed = "mixed", EndedOnly = "ended-only", ActiveOnly = "active-only";
+    public const string Scroll = "scroll", Top = "top", Bottom = "bottom", Detail = "detail";
 }
 
 /// <summary>Broker error codes the tray translates (mirrors PwshMcp.Host Errors).</summary>

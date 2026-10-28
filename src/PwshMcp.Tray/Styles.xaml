@@ -340,6 +340,154 @@
     </DataTemplate.Triggers>
   </DataTemplate>
 
+  <!-- Scrollbars: a quiet 10px gutter, no arrow buttons, the track pages. The thumb is a 4px muted pill that widens to 8px
+       while the pointer is anywhere over the gutter and takes the accent while dragged; the whole gutter width is its hit target. -->
+  <Style x:Key="{x:Static t:K.Page}" TargetType="RepeatButton">
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></Setter.Value>
+    </Setter>
+  </Style>
+  <ControlTemplate x:Key="{x:Static t:K.Thumb}" TargetType="Thumb">
+    <Border Background="Transparent">
+      <Border x:Name="pill" CornerRadius="4" Margin="3,1" Opacity="0.42" Background="{DynamicResource {x:Static t:K.Muted}}" SnapsToDevicePixels="True"/>
+    </Border>
+    <ControlTemplate.Triggers>
+      <DataTrigger Binding="{Binding Orientation, RelativeSource={RelativeSource AncestorType=ScrollBar}}" Value="Horizontal">
+        <Setter TargetName="pill" Property="Margin" Value="1,3"/>
+      </DataTrigger>
+      <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ScrollBar}}" Value="True">
+        <Setter TargetName="pill" Property="Margin" Value="1"/>
+        <Setter TargetName="pill" Property="Opacity" Value="0.7"/>
+      </DataTrigger>
+      <Trigger Property="IsDragging" Value="True">
+        <Setter TargetName="pill" Property="Margin" Value="1"/>
+        <Setter TargetName="pill" Property="Opacity" Value="1"/>
+        <Setter TargetName="pill" Property="Background" Value="{DynamicResource {x:Static t:K.Accent}}"/>
+      </Trigger>
+    </ControlTemplate.Triggers>
+  </ControlTemplate>
+  <Style TargetType="ScrollBar">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Width" Value="10"/>
+    <Setter Property="MinWidth" Value="10"/>
+    <Setter Property="Cursor" Value="Arrow"/>
+    <Setter Property="Stylus.IsPressAndHoldEnabled" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ScrollBar">
+          <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+              <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource {x:Static t:K.Page}}" Command="ScrollBar.PageUpCommand"/></Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource {x:Static t:K.Page}}" Command="ScrollBar.PageDownCommand"/></Track.IncreaseRepeatButton>
+              <Track.Thumb><Thumb Template="{StaticResource {x:Static t:K.Thumb}}" MinHeight="24"/></Track.Thumb>
+            </Track>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="Orientation" Value="Horizontal">
+        <Setter Property="Width" Value="Auto"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="MinHeight" Value="10"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="ScrollBar">
+              <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                <Track x:Name="PART_Track">
+                  <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource {x:Static t:K.Page}}" Command="ScrollBar.PageLeftCommand"/></Track.DecreaseRepeatButton>
+                  <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource {x:Static t:K.Page}}" Command="ScrollBar.PageRightCommand"/></Track.IncreaseRepeatButton>
+                  <Track.Thumb><Thumb Template="{StaticResource {x:Static t:K.Thumb}}" MinWidth="24"/></Track.Thumb>
+                </Track>
+              </Border>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- Scroll area with a stable gutter: a bar set to Auto keeps its 10px even while hidden, so content never reflows or jumps
+       when overflow begins or ends. Callers take the gutter out of their own outer margin, not out of the content.
+       Tag=Names.Rules adds hairlines at the top/bottom viewport edge while more content lies beyond (inset to K.List's padding). -->
+  <Style x:Key="{x:Static t:K.Scroll}" TargetType="ScrollViewer">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ScrollViewer">
+          <Grid Background="{TemplateBinding Background}">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Margin="{TemplateBinding Padding}" CanContentScroll="{TemplateBinding CanContentScroll}"
+                                    CanHorizontallyScroll="False" CanVerticallyScroll="False" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+            <Grid x:Name="rules" Margin="4,0" IsHitTestVisible="False" Visibility="Collapsed">
+              <Rectangle Height="1" VerticalAlignment="Top" Fill="{DynamicResource {x:Static t:K.Line}}"
+                         Visibility="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static t:All.Above}}"/>
+              <Rectangle Height="1" VerticalAlignment="Bottom" Fill="{DynamicResource {x:Static t:K.Line}}">
+                <Rectangle.Visibility>
+                  <MultiBinding Converter="{x:Static t:All.Below}">
+                    <Binding Path="VerticalOffset" RelativeSource="{RelativeSource TemplatedParent}"/>
+                    <Binding Path="ScrollableHeight" RelativeSource="{RelativeSource TemplatedParent}"/>
+                  </MultiBinding>
+                </Rectangle.Visibility>
+              </Rectangle>
+            </Grid>
+            <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Minimum="0" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}"
+                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+            <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="1" Orientation="Horizontal" Minimum="0" Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}"
+                       Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <MultiTrigger>
+              <MultiTrigger.Conditions><Condition Property="VerticalScrollBarVisibility" Value="Auto"/><Condition Property="ComputedVerticalScrollBarVisibility" Value="Collapsed"/></MultiTrigger.Conditions>
+              <Setter TargetName="PART_VerticalScrollBar" Property="Visibility" Value="Hidden"/>
+            </MultiTrigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions><Condition Property="HorizontalScrollBarVisibility" Value="Auto"/><Condition Property="ComputedHorizontalScrollBarVisibility" Value="Collapsed"/></MultiTrigger.Conditions>
+              <Setter TargetName="PART_HorizontalScrollBar" Property="Visibility" Value="Hidden"/>
+            </MultiTrigger>
+            <Trigger Property="Tag" Value="{x:Static t:Names.Rules}"><Setter TargetName="rules" Property="Visibility" Value="Visible"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Sidebar list: the viewport reaches 4px left, 6px up/down and 12px right into the pane's existing margins, so the
+       4,6,4,6 inner padding (room for the 3px focus ring and card corners) and the 10px gutter cost no row width:
+       rows stay 310px wide, starting where the tab strip starts, whether or not the bar is showing. -->
+  <Style x:Key="{x:Static t:K.List}" TargetType="ListBox">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Margin" Value="-4,-6,-12,-6"/>
+    <Setter Property="Padding" Value="4,6,4,6"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBox">
+          <ScrollViewer x:Name="sv" Style="{StaticResource {x:Static t:K.Scroll}}" Tag="{x:Static t:Names.Rules}" Background="{TemplateBinding Background}"
+                        CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}"
+                        HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+            <ItemsPresenter Margin="{TemplateBinding Padding}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+          </ScrollViewer>
+          <ControlTemplate.Triggers>
+            <!-- Same rule as the stock template: grouped lists that don't virtualize scroll by pixel. -->
+            <MultiTrigger>
+              <MultiTrigger.Conditions><Condition Property="IsGrouping" Value="True"/><Condition Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="False"/></MultiTrigger.Conditions>
+              <Setter Property="ScrollViewer.CanContentScroll" Value="False"/>
+            </MultiTrigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- List rows -->
   <Style x:Key="{x:Static t:K.Row}" TargetType="ListBoxItem">
     <Setter Property="Padding" Value="12,10"/>
@@ -438,8 +586,9 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TextBox">
-          <Border x:Name="bd" CornerRadius="8" Background="{DynamicResource {x:Static t:K.Code}}" BorderThickness="1" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="12,10">
-            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"/>
+          <!-- Padding gives up 10px right and bottom to the stable gutters, so the text inset stays 12 / 10. -->
+          <Border x:Name="bd" CornerRadius="8" Background="{DynamicResource {x:Static t:K.Code}}" BorderThickness="1" BorderBrush="{DynamicResource {x:Static t:K.Line}}" Padding="12,10,2,0">
+            <ScrollViewer x:Name="PART_ContentHost" Style="{StaticResource {x:Static t:K.Scroll}}"/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsKeyboardFocused" Value="True">

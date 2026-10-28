@@ -18,8 +18,9 @@
     <DataTemplate DataType="{x:Type t:GrantVm}">
       <Grid>
         <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-          <StackPanel Margin="32,28,32,28">
+        <!-- Right margin 22 + the 10px stable gutter = the old 32: text width is unchanged at rest and no longer narrows by 17px on overflow. -->
+        <ScrollViewer Style="{StaticResource {x:Static t:K.Scroll}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="32,28,22,28">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
               <t:Chip Text="{Binding StateName}" Tone="{Binding Tone}"/>
               <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="10,0,0,0" VerticalAlignment="Center" Text="{Binding Age}"/>
@@ -163,8 +164,9 @@
     <DataTemplate DataType="{x:Type t:JobVm}">
       <Grid>
         <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-          <StackPanel Margin="32,28,32,28">
+        <!-- Right margin 22 + the 10px stable gutter = the old 32: text width is unchanged at rest and no longer narrows by 17px on overflow. -->
+        <ScrollViewer Style="{StaticResource {x:Static t:K.Scroll}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="32,28,22,28">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
               <t:Chip Text="{Binding StateName}" Tone="{Binding Tone}"/>
               <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="10,0,0,0" VerticalAlignment="Center" Text="{Binding Submitted}"/>
@@ -276,7 +278,8 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="340" MinWidth="260" MaxWidth="560"/>
         <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition Width="*" MinWidth="400"/>
+        <!-- 352 = the ~704px client area of a 720px window minus sidebar and splitter, so the detail gutter and footer stay on screen. -->
+        <ColumnDefinition Width="*" MinWidth="352"/>
       </Grid.ColumnDefinitions>
 
       <!-- Left: segmented lists. Rows lead with the task or description; the readable client name follows. -->
@@ -295,7 +298,7 @@
           </StackPanel>
 
           <ListBox x:Name="reqList" ItemsSource="{Binding Requests}" SelectedItem="{Binding SelReq}" ItemContainerStyle="{StaticResource {x:Static t:K.Row}}"
-                   Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{x:Static t:Copy+Tabs.Requests}"
+                   Style="{StaticResource {x:Static t:K.List}}" AutomationProperties.Name="{x:Static t:Copy+Tabs.Requests}"
                    Visibility="{Binding IsReq, Converter={StaticResource {x:Static t:K.Vis}}}">
             <ListBox.ItemTemplate>
               <DataTemplate>
@@ -321,7 +324,7 @@
           </ListBox>
 
           <ListBox x:Name="accList" ItemsSource="{Binding Access}" SelectedItem="{Binding SelAcc}" ItemContainerStyle="{StaticResource {x:Static t:K.Row}}"
-                   Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{x:Static t:Copy+Tabs.Access}"
+                   Style="{StaticResource {x:Static t:K.List}}" AutomationProperties.Name="{x:Static t:Copy+Tabs.Access}"
                    Visibility="{Binding IsAcc, Converter={StaticResource {x:Static t:K.Vis}}}">
             <!-- Ended entries form their own group: the heading lives on the GroupItem, outside every row's card, hover and selection.
                  Rules skip layout rounding: a centred 1px line at a half-pixel offset would otherwise round to zero height. -->
@@ -331,6 +334,17 @@
                   <Style TargetType="GroupItem">
                     <Setter Property="Focusable" Value="False"/>
                     <Setter Property="KeyboardNavigation.IsTabStop" Value="False"/>
+                    <!-- Flat group: the stock GroupItem indents its rows 5px; here they line up with the other tabs and the tab strip. -->
+                    <Setter Property="Template">
+                      <Setter.Value>
+                        <ControlTemplate TargetType="GroupItem">
+                          <StackPanel>
+                            <ContentPresenter x:Name="PART_Header" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" ContentTemplateSelector="{TemplateBinding ContentTemplateSelector}"/>
+                            <ItemsPresenter x:Name="ItemsPresenter"/>
+                          </StackPanel>
+                        </ControlTemplate>
+                      </Setter.Value>
+                    </Setter>
                   </Style>
                 </GroupStyle.ContainerStyle>
                 <GroupStyle.HeaderTemplate>
@@ -375,7 +389,7 @@
           </ListBox>
 
           <ListBox x:Name="taskList" ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelTask}" ItemContainerStyle="{StaticResource {x:Static t:K.Row}}"
-                   Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{x:Static t:Copy+Tabs.Tasks}"
+                   Style="{StaticResource {x:Static t:K.List}}" AutomationProperties.Name="{x:Static t:Copy+Tabs.Tasks}"
                    VirtualizingPanel.IsVirtualizing="True" Visibility="{Binding IsTask, Converter={StaticResource {x:Static t:K.Vis}}}">
             <ListBox.ItemTemplate>
               <DataTemplate>

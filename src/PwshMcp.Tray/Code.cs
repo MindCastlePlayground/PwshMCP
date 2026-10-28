@@ -165,9 +165,11 @@ public sealed class CodeView : Border
         box = new RichTextBox
         {
             Document = doc, IsReadOnly = true, IsReadOnlyCaretVisible = true, BorderThickness = new Thickness(0), Background = Brushes.Transparent,
-            Padding = new Thickness(0), Margin = new Thickness(12, 8, 12, 10), MaxHeight = MaxBody, FocusVisualStyle = null, IsUndoEnabled = false,
+            Padding = new Thickness(0), Margin = new Thickness(12, 8, 2, 10), MaxHeight = MaxBody, FocusVisualStyle = null, IsUndoEnabled = false,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
         };
+        // Stable 10px gutter (taken from the old 12px right margin): wrapped code keeps its width whether or not it overflows.
+        if (Application.Current?.TryFindResource(K.Scroll) is Style sv) box.Resources[typeof(ScrollViewer)] = sv;
         box.SetResourceReference(TextBoxBase.SelectionBrushProperty, K.Accent);
         box.SetResourceReference(TextBoxBase.CaretBrushProperty, K.Ink);
         box.SetResourceReference(Control.ForegroundProperty, K.Ink);

@@ -253,6 +253,7 @@ public static class Check
             Shared(host, $"{Report.Main} {tag} {t}", SharedOn[t]);
         }
         Note(vm.Requests.Count > 0 && vm.Access.Count > 0 && vm.Tasks.Count > 0, Report.Layout, $"{Report.Main} {tag} sample data loaded");
+        Ended(vm, main, host, tag, dir);
         Inline(vm, main, host, sent, r => reply = r, tag, dir);
 
         var avm = new ApproveVm("grant-pending-0001", null, false);
@@ -272,6 +273,69 @@ public static class Check
     }
 
     static readonly int[] CodeWidths = [360, 900], GateWidths = [720, 1000];
+
+    static readonly (string Name, AccessState[] States)[] Lists =
+    [
+        (Report.Mixed, [AccessState.Revoked, AccessState.Active, AccessState.Expired, AccessState.Denied, AccessState.Active]),
+        (Report.EndedOnly, [AccessState.Expired, AccessState.Revoked]),
+        (Report.ActiveOnly, [AccessState.Active, AccessState.Active]),
+    ];
+
+    /// <summary>
+    /// The Ended heading is a group header: exactly one when any grant has ended, never inside a row (card, hover, selection),
+    /// with every live row above it and every ended row below it, and selection still reaching ended rows.
+    /// </summary>
+    static void Ended(MainVm vm, MainWindow main, Border host, string tag, string? dir)
+    {
+        var list = main.accList;
+        foreach (var (name, states) in Lists)
+        {
+            var what = $"{Report.Ended} {tag} {name}";
+            vm.Seed(new Status(Conn.Online, new Snapshot { Grants = [.. states.Select((s, i) => Grant($"grant-{name}-{i}", s, $"任务 {i} / Task {i}"))], Jobs = [] }, Now, "", true, true), Tab.Access);
+            var end = vm.Access.FirstOrDefault(a => a.IsEnded);
+            vm.SelAcc = end ?? vm.Access.FirstOrDefault();
+            main.detail.BeginAnimation(UIElement.OpacityProperty, null);
+            main.rise.BeginAnimation(TranslateTransform.YProperty, null);
+            foreach (var w in GateWidths) Lay(host, w, MainHeight, $"{what} {w}px", dir, Report.Ended, tag, $"{name}-{w}");
+
+            var heads = Heads(list).ToList();
+            var rows = Rows(list).ToList();
+            bool any = states.Any(s => s != AccessState.Active);
+            Note(heads.Count == (any ? 1 : 0), Report.Ended, $"{what} one heading only when something ended ({heads.Count})");
+            Note(heads.All(h => Up<ListBoxItem>(h) is null && Up<GroupItem>(h) is { Focusable: false } && !h.IsHitTestVisible && !h.Focusable),
+                Report.Ended, $"{what} heading sits on the group, outside every row; not focusable, not hit-testable");
+            Note(rows.Count == vm.Access.Count && rows.Select(r => r.DataContext).SequenceEqual(vm.Access), Report.Ended, $"{what} every grant is one selectable row, source order kept ({rows.Count})");
+            double y(FrameworkElement e) => e.TransformToAncestor(list).Transform(new Point()).Y;
+            var ys = rows.Select(y).ToList();
+            var cut = heads.Count == 1 ? y(heads[0]) + heads[0].ActualHeight : double.NaN;
+            Note(ys.Zip(ys.Skip(1)).All(p => p.First < p.Second)
+                 && (heads.Count == 0 || rows.All(r => ((GrantVm)r.DataContext).IsEnded == (y(r) >= cut))),
+                Report.Ended, $"{what} live rows above the heading, all ended rows below it");
+            var pick = (ListBoxItem?)list.ItemContainerGenerator.ContainerFromItem(vm.SelAcc!);
+            Note(pick is { IsSelected: true } && list.SelectedItem == vm.SelAcc && rows.Count(r => r.IsSelected) == 1 && Heads(pick).Count() == 0,
+                Report.Ended, $"{what} selecting {(end is null ? "a live" : "an ended")} grant selects exactly its row; focus can reach it by container");
+            if (any) Shared(host, what, [typeof(Copy.Tabs).GetProperty(nameof(Copy.Tabs.Ended))!]);
+        }
+    }
+
+    /// <summary>Laid-out Ended headings (a collapsed header or hidden empty group measures to zero height).</summary>
+    static IEnumerable<FrameworkElement> Heads(DependencyObject d) =>
+        All<TextBlock>(d).Where(t => t.Text == Copy.Tabs.Ended).Select(t => (FrameworkElement)VisualTreeHelper.GetParent(t)).Where(g => g.ActualHeight > 0 && Shown(g));
+
+    static bool Shown(DependencyObject d)
+    {
+        for (var p = d; p is not null; p = VisualTreeHelper.GetParent(p)) if (p is UIElement { Visibility: not Visibility.Visible }) return false;
+        return true;
+    }
+
+    static IEnumerable<ListBoxItem> Rows(DependencyObject d) => All<ListBoxItem>(d);
+
+    static IEnumerable<T> All<T>(DependencyObject d) where T : DependencyObject
+    {
+        if (d is T t) yield return t;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            foreach (var c in All<T>(VisualTreeHelper.GetChild(d, i))) yield return c;
+    }
 
     static PropertyInfo Inl(string n) => typeof(Copy.Inline).GetProperty(n)!;
     static PropertyInfo Gat(string n) => typeof(Copy.Gate).GetProperty(n)!;

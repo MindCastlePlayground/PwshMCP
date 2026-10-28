@@ -93,7 +93,7 @@ public sealed class GrantVm : Bindable
 {
     readonly MainVm main;
     AccessInfo info = new();
-    string notice = ""; bool bad, isNew, divider, sending;
+    string notice = ""; bool bad, isNew, sending;
     DateTimeOffset now = DateTimeOffset.UtcNow;
     Life life = Life.SignOut;
 
@@ -149,7 +149,6 @@ public sealed class GrantVm : Bindable
     public DateTimeOffset Now { get => now; private set => Set(ref now, value); }
 
     public bool IsNew { get => isNew; set => Set(ref isNew, value); }
-    public bool Divider { get => divider; set => Set(ref divider, value); }
     public string Notice { get => notice; private set { if (Set(ref notice, value)) { Raise(nameof(Footer)); Raise(nameof(ShowPick)); } } }
     public bool NoticeBad { get => bad; private set => Set(ref bad, value); }
     public void Say(string text, bool error) { NoticeBad = error; Notice = text; }
@@ -409,7 +408,6 @@ public sealed class MainVm : Bindable
             Sync(Tasks, jobs.OrderByDescending(j => j.CreatedAt), j => j.Id, j => new JobVm(this, j), (vm, j) => vm.Update(j));
             See();
             foreach (var r in Requests) r.IsNew = !seen.Contains(r.Id);
-            for (int i = 0; i < Access.Count; i++) Access[i].Divider = Access[i].IsEnded && (i == 0 || !Access[i - 1].IsEnded);
             if (selReq is not null && !Requests.Contains(selReq)) SelReq = null;
             if (selReq is null && Requests.Count > 0) SelReq = Requests[0];
             if (selAcc is not null && !Access.Contains(selAcc)) SelAcc = null;

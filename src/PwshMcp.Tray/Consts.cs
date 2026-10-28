@@ -411,6 +411,7 @@ public static class Report
     public const string Main = "main", Approve = "approve", Name = "{0}-{1}-{2}{3}";
     public const string Gate = "gate", Inline = "inline", Sent = "sent", Down = "down", Broken = "broken", Failed = "failed";
     public const string Pop = "popup";
+    public const string Ended = "ended", Mixed = "mixed", EndedOnly = "ended-only", ActiveOnly = "active-only";
 }
 
 /// <summary>Broker error codes the tray translates (mirrors PwshMcp.Host Errors).</summary>

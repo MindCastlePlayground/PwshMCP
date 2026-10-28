@@ -323,29 +323,53 @@
           <ListBox x:Name="accList" ItemsSource="{Binding Access}" SelectedItem="{Binding SelAcc}" ItemContainerStyle="{StaticResource {x:Static t:K.Row}}"
                    Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{x:Static t:Copy+Tabs.Access}"
                    Visibility="{Binding IsAcc, Converter={StaticResource {x:Static t:K.Vis}}}">
+            <!-- Ended entries form their own group: the heading lives on the GroupItem, outside every row's card, hover and selection.
+                 Rules skip layout rounding: a centred 1px line at a half-pixel offset would otherwise round to zero height. -->
+            <ListBox.GroupStyle>
+              <GroupStyle HidesIfEmpty="True">
+                <GroupStyle.ContainerStyle>
+                  <Style TargetType="GroupItem">
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="KeyboardNavigation.IsTabStop" Value="False"/>
+                  </Style>
+                </GroupStyle.ContainerStyle>
+                <GroupStyle.HeaderTemplate>
+                  <DataTemplate>
+                    <Grid Margin="12,14,12,8" Focusable="False" IsHitTestVisible="False">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Grid.Style>
+                        <Style TargetType="Grid">
+                          <Setter Property="Visibility" Value="Collapsed"/>
+                          <Style.Triggers><DataTrigger Binding="{Binding Name}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                        </Style>
+                      </Grid.Style>
+                      <Border Height="1" VerticalAlignment="Center" Background="{DynamicResource {x:Static t:K.Line}}" UseLayoutRounding="False" SnapsToDevicePixels="True"/>
+                      <TextBlock Grid.Column="1" Style="{StaticResource {x:Static t:K.Label}}" Margin="10,0" Text="{x:Static t:Copy+Tabs.Ended}"/>
+                      <Border Grid.Column="2" Height="1" VerticalAlignment="Center" Background="{DynamicResource {x:Static t:K.Line}}" UseLayoutRounding="False" SnapsToDevicePixels="True"/>
+                    </Grid>
+                  </DataTemplate>
+                </GroupStyle.HeaderTemplate>
+              </GroupStyle>
+            </ListBox.GroupStyle>
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <StackPanel AutomationProperties.Name="{Binding Spoken}">
-                  <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,8,0,10" Text="{x:Static t:Copy+Tabs.Ended}"
-                             Visibility="{Binding Divider, Converter={StaticResource {x:Static t:K.Vis}}}"/>
-                  <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <StackPanel>
-                      <TextBlock FontSize="14" TextTrimming="CharacterEllipsis" Text="{Binding TaskLine}" ToolTip="{Binding TaskName}">
-                        <TextBlock.Style>
-                          <Style TargetType="TextBlock">
-                            <Setter Property="FontWeight" Value="SemiBold"/>
-                            <Style.Triggers><DataTrigger Binding="{Binding HasTask}" Value="False"><Setter Property="FontWeight" Value="Normal"/><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/></DataTrigger></Style.Triggers>
-                          </Style>
-                        </TextBlock.Style>
-                      </TextBlock>
-                      <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}">
-                        <Run Text="{Binding Client, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding RowSub, Mode=OneWay}"/>
-                      </TextBlock>
-                    </StackPanel>
-                    <t:Chip Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top" Text="{Binding StateName}" Tone="{Binding Tone}"/>
-                  </Grid>
-                </StackPanel>
+                <Grid AutomationProperties.Name="{Binding Spoken}">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock FontSize="14" TextTrimming="CharacterEllipsis" Text="{Binding TaskLine}" ToolTip="{Binding TaskName}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="FontWeight" Value="SemiBold"/>
+                          <Style.Triggers><DataTrigger Binding="{Binding HasTask}" Value="False"><Setter Property="FontWeight" Value="Normal"/><Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/></DataTrigger></Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock FontSize="12.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource {x:Static t:K.Muted}}">
+                      <Run Text="{Binding Client, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding RowSub, Mode=OneWay}"/>
+                    </TextBlock>
+                  </StackPanel>
+                  <t:Chip Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top" Text="{Binding StateName}" Tone="{Binding Tone}"/>
+                </Grid>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>

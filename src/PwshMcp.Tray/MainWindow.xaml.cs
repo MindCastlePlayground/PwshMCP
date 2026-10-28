@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -19,6 +20,7 @@ public partial class MainWindow : Window
         Language = L.Xml;
         InitializeComponent();
         DataContext = vm;
+        Group(vm.Access);
         vm.PropertyChanged += OnVm;
         Pop = v => life.IsOpen = v;
         IsVisibleChanged += (_, _) => { vm.Viewing = IsVisible && WindowState != WindowState.Minimized; if (!IsVisible) Shut(false); };
@@ -32,6 +34,20 @@ public partial class MainWindow : Window
         InputBindings.Add(new KeyBinding(new Relay(() => vm.Tab = Tab.Tasks), Key.D3, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new Relay(Hide), Key.Escape, ModifierKeys.None));
         InputBindings.Add(new KeyBinding(vm.Retry, Key.F5, ModifierKeys.None));
+    }
+
+    /// <summary>
+    /// Access splits into live (false) then ended (true), in that fixed order; source order is kept inside each group.
+    /// Live grouping moves a grant under the Ended heading the moment it expires or is revoked.
+    /// </summary>
+    static void Group(System.Collections.IEnumerable src)
+    {
+        if (CollectionViewSource.GetDefaultView(src) is not ListCollectionView v || v.GroupDescriptions.Count > 0) return;
+        var by = new PropertyGroupDescription(nameof(GrantVm.IsEnded));
+        by.GroupNames.Add(false); by.GroupNames.Add(true);
+        v.GroupDescriptions.Add(by);
+        v.LiveGroupingProperties.Add(nameof(GrantVm.IsEnded));
+        v.IsLiveGrouping = true;
     }
 
     object? shown;

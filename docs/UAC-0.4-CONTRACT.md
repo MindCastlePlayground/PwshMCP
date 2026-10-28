@@ -14,6 +14,8 @@ Host `admin` 模式必须在受保护 Program Files/PwshMCP 中以管理员身�
 
 ## 安装
 
+计划任务实际入口为无控制台窗口的 `PwshMcp.Admin.exe`，固定以 CreateNoWindow 启动同目录 Host.exe admin 并等待其退出；不接收外部启动参数，协调器异常退出可由任务计划程序观察。
+
 新增 scripts/install-desktop.ps1：必须管理员启动，输入目标 UserSid（普通调用者提前记录）、Source。验证用户属于当前安装管理员 SID，不支持凭另一个管理员账号给标准用户静默授予提权入口。Program Files/PwshMCP 安装且 ACL 仅 SYSTEM/Administrators 写，普通用户读执行。注册 UserSid + InteractiveToken + Highest 任务，启动固定 Host.exe admin；无任意脚本/参数输入、无密码保存。创建目标用户托盘登录启动入口，立即启动计划任务，普通托盘由外层普通用户启动。保留原服务安装独立入口，不同时部署该服务。
 
 ## 验收

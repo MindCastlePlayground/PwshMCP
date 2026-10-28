@@ -9,6 +9,7 @@ class DesktopInstall {
     static [string]$RunName='PwshMCP'
     static [string]$ServiceName='PwshMcpBroker'
     static [string]$HostName='PwshMcp.Host.exe'
+    static [string]$AdminName='PwshMcp.Admin.exe'
     static [string]$TrayName='PwshMcp.Tray.exe'
     static [string]$InstallName='PwshMCP'
     static [string]$DataName='PwshMCP'
@@ -46,7 +47,7 @@ try {
     [DesktopInstall]::Check($sourcePath)
     $files=@(Get-ChildItem -LiteralPath $sourcePath -Force -Recurse)
     foreach($item in $files){if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw "Source contains a reparse point: $($item.FullName)"}}
-    foreach($name in @([DesktopInstall]::HostName,[DesktopInstall]::TrayName)) {if(-not (Test-Path -LiteralPath (Join-Path $sourcePath $name) -PathType Leaf)){throw "Missing required source file: $name"}}
+    foreach($name in @([DesktopInstall]::HostName,[DesktopInstall]::TrayName,[DesktopInstall]::AdminName)) {if(-not (Test-Path -LiteralPath (Join-Path $sourcePath $name) -PathType Leaf)){throw "Missing required source file: $name"}}
     $target=Join-Path $env:ProgramFiles ([DesktopInstall]::InstallName)
     $data=Join-Path $env:ProgramData 'PwshMCP-Desktop'
     $receipt=Join-Path $data 'desktop-installer-result.json'
@@ -77,7 +78,7 @@ try {
     foreach($item in $installed){if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw "Installed path contains a reparse point: $($item.FullName)"}}
     $hostPath=Join-Path $target ([DesktopInstall]::HostName)
     $trayPath=Join-Path $target ([DesktopInstall]::TrayName)
-    $action=New-ScheduledTaskAction -Execute $hostPath -Argument 'admin' -WorkingDirectory $target
+    $action=New-ScheduledTaskAction -Execute (Join-Path $target ([DesktopInstall]::AdminName)) -WorkingDirectory $target
     $trigger=New-ScheduledTaskTrigger -AtLogOn -User $sid
     $principal=New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Highest
     $settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew

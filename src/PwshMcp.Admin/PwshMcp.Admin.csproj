@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><AssemblyName>PwshMcp.Admin</AssemblyName></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../PwshMcp.Shared/PwshMcp.Shared.csproj"/></ItemGroup>
+</Project>

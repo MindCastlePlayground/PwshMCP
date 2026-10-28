@@ -9,7 +9,7 @@ namespace PwshMcp.Shared;
 
 public static class AdminNames
 {
-    public const string Mode = "admin", Host = "PwshMcp.Host.exe", Tray = "PwshMcp.Tray.exe";
+    public const string Mode = "admin", Host = "PwshMcp.Host.exe", Tray = "PwshMcp.Tray.exe", Launcher = "PwshMcp.Admin.exe";
     public const string Folder = "PwshMCP", Prefix = "PwshMCP-Admin-";
     public const string Offline = "admin_unavailable", Forbidden = "admin_forbidden", Invalid = "admin_invalid_request", Protected = "admin_requires_protected_install", Worker = "admin_worker_failed";
     public const int MaxMessage = 4096;

@@ -42,3 +42,11 @@
 - `c182f9f` guards the full presentation operation against reentry. The same native regression now passes, including hide/show and close/reopen. The rebuilt release package passed all 815 offline self-tests. This patch is not yet installed.
 - TaskHub restart run `ce6fd6fd-d5b5-48f5-9647-305ee24c3464` restored tray PID 91304 under host PID 67616. Manual recovery works; automatic recovery remains unaccepted pending the host fix.
 - Claude delegation is temporarily disabled at the user's request.
+
+## Combined correction ready for installation
+
+- TaskHub `internal/daemon/host.go` now leaves `Cmd.Stdout` / `Cmd.Stderr` nil instead of assigning `io.Discard`. Output goes directly to the null device; no copying goroutines wait on inherited pipes after the tray exits.
+- Review corrected the new regression helper to explicitly inherit `os.Stdout` and `os.Stderr`. With this real inherited-handle fixture, the old host fails after 10.604 seconds (dead parent still reported running), and the fixed host passes in 5.307 seconds. The earlier test without explicit inheritance did not establish this distinction.
+- The standalone TaskHub repository has no Git metadata. Its source and test changes are local, not part of the PwshMCP Git history. Built host SHA256: `C031CC16F2E6F782BEE351881B64C233BB3078852268FA17734EADA1975C2477`.
+- Combined installer backs up the tray and scheduled task, installs a private corrected host under `C:\Program Files\PwshMCP`, and changes only the PwshMCP task's executable. Shared TaskHub host binaries, other daemon tasks, Worker and administrator executor are not restarted or replaced.
+- The pending tray request is `修复窗口打开异常与守护自动恢复`. Until it is approved and the protected receipt and live crash test are checked, installation and real recovery remain unaccepted.

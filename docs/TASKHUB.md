@@ -32,6 +32,8 @@ TaskHub 会终止托盘所在的进程树。托盘在守护下新建的 Broker �
 
 ## 验收
 
+2026-10-29 实测发现旧 TaskHub host 的输出处理会阻塞托盘退出检测：`exec.Cmd` 的 `Stdout/Stderr = io.Discard` 会建立复制管道，后代进程继承管道后，托盘退出仍不能结束 `Wait`。TaskHub 源码修复将这两个字段保留为 nil，直接连接空设备。使用旧 host 时，`running` 可能仍指向已退出的 PID；不要仅凭状态字段判断恢复成功。修复及安装进度见 [恢复验收记录](../tasks/recovery-acceptance.md)。
+
 ```powershell
 python scripts/check-taskhub.py --output artifacts/taskhub-status.json
 # 仅在没有执行任务时，实际终止托盘并验证恢复：

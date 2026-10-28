@@ -10,6 +10,8 @@
 - 独立测试通道集成：11 项通过。
 - 开发目录直接运行管理员协调器被拒绝，返回 `admin_requires_protected_install`。
 - 安装/卸载 PowerShell 脚本语法检查通过。
+- `d73d84a` 推送后，`scripts/build.ps1 -Output artifacts/package` 正式构建通过；最终包运行 `--render-check artifacts/ui-release-0.4.0`，190 项检查通过、0 失败。中英文截图已检查。
+- Claude Code `claude-opus-5-5 --effort medium` 完成全部 UI 改动，任务结果 `is_error=false`、进程退出码 0。
 
 ## 本机验收入口
 
@@ -20,3 +22,5 @@
 升级切换 broker 会使旧授权过期，需要在新托盘重新批准。旧 Codex 会话固定校验旧安装路径，需重新连接 MCP。原 0.3.0 安装保留用于回退。
 
 真实安装、管理员权限端到端、重新登录自启与高 DPI 的结论以本文件后续实测记录为准；离线渲染不能替代这些验收。
+
+2026-10-28 本机安装请求已发起；此记录提交时仍等待用户确认 Windows UAC，未将旧版托盘或 Codex 配置切换至新路径。

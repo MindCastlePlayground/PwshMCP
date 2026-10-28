@@ -50,3 +50,13 @@
 - The standalone TaskHub repository has no Git metadata. Its source and test changes are local, not part of the PwshMCP Git history. Built host SHA256: `C031CC16F2E6F782BEE351881B64C233BB3078852268FA17734EADA1975C2477`.
 - Combined installer backs up the tray and scheduled task, installs a private corrected host under `C:\Program Files\PwshMCP`, and changes only the PwshMCP task's executable. Shared TaskHub host binaries, other daemon tasks, Worker and administrator executor are not restarted or replaced.
 - The pending tray request is `修复窗口打开异常与守护自动恢复`. Until it is approved and the protected receipt and live crash test are checked, installation and real recovery remain unaccepted.
+
+## Installed acceptance (2026-10-29)
+
+- User approved the combined update. Protected receipt reports installation at `2026-10-28T17:52:50Z`. Installed Tray DLL SHA256 matches the tested package (`41E890FA43B3967DFA8DB185BEB3899DC563BC70C47890F3DB236C3D6E27AAA2`); private host matches the hash above. Scheduled action points at that private host with the original manifest arguments.
+- The initiating job reports exit 1 because the detached updater restarted its Broker/process tree. This is distinct from the installation result: protected receipt, hashes, scheduled action and subsequent live acceptance confirm the update succeeded.
+- Real crash recovery passed: tray PID 115704 → 82052, host PID 52988 unchanged, restarts 0 → 1, observed in 7.53 seconds. Hub runs: `ed587a49-ebe3-4b35-add6-1788ac514a7c` and `29fc5862-60ac-4eb6-97c2-f6fe7f4702f7`. Local evidence: `artifacts/taskhub-installed.json`.
+- Trusted Broker and administrator probes passed after recovery. Installed administrator tests passed, including rejection of non-tray approve/resume. The restarted tray has `TokenElevation=0`.
+- A real normal command through installed `ctl` succeeded and returned the expected output through `op=output`. No additional administrator grant was needed.
+- CC Switch PID 16320 / host 6568 and audio mixer PID 3976 / host 74040 remained unchanged.
+- Computer Use opened the installed main window successfully; accessibility showed both connected and executor ready, plus both repair entry buttons. Clicking a repair entry failed with tool error `coordinate input geometry is unavailable`; refreshed screenshot capture timed out. The installed repair-window click path and repeated manual window open/close remain unverified. Native reentry/hide/reopen tests and 815 offline UI checks passed earlier; those are separate evidence.

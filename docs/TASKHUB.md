@@ -34,6 +34,8 @@ TaskHub 会终止托盘所在的进程树。托盘在守护下新建的 Broker �
 
 2026-10-29 实测发现旧 TaskHub host 的输出处理会阻塞托盘退出检测：`exec.Cmd` 的 `Stdout/Stderr = io.Discard` 会建立复制管道，后代进程继承管道后，托盘退出仍不能结束 `Wait`。TaskHub 源码修复将这两个字段保留为 nil，直接连接空设备。使用旧 host 时，`running` 可能仍指向已退出的 PID；不要仅凭状态字段判断恢复成功。修复及安装进度见 [恢复验收记录](../tasks/recovery-acceptance.md)。
 
+本机已为 `TaskHub Daemon pwshmcp` 单独安装修复版 host：`C:\Program Files\PwshMCP\taskhub-daemon-host.exe`，保留原 manifest 参数。共享 TaskHub host 和其他守护任务未替换。真实崩溃恢复已通过。后续重建任务时须继续使用修复版 host；仅重新运行旧 TaskHub 安装器可能退回未修复的共享 host。
+
 ```powershell
 python scripts/check-taskhub.py --output artifacts/taskhub-status.json
 # 仅在没有执行任务时，实际终止托盘并验证恢复：

@@ -17,9 +17,6 @@ public partial class NoticeWindow : Window
         InitializeComponent();
         Language = L.Xml;
         DataContext = grant;
-        foreach (var life in Lives.All) duration.Items.Add(new ComboBoxItem { Content = Label(life), Tag = life });
-        duration.SelectedIndex = Array.IndexOf(Lives.All, grant.Life);
-        duration.SelectionChanged += (_, _) => { if (duration.SelectedItem is ComboBoxItem { Tag: Life life }) grant.Pick(life); };
         Refresh(pending);
         SourceInitialized += (_, _) => Place();
         Closed += (_, _) => { if (!completed) later(); };
@@ -27,10 +24,10 @@ public partial class NoticeWindow : Window
 
     public static string Label(Life life) => life switch
     {
-        Life.OneHour => Copy.Approve.OneHour,
-        Life.FourHours => Copy.Approve.FourHours,
-        Life.Today => Copy.Approve.Today,
-        _ => Copy.Approve.SignOut
+        Life.OneHour => Copy.Notify.Hour,
+        Life.FourHours => Copy.Notify.Four,
+        Life.Today => Copy.Notify.Today,
+        _ => Copy.Notify.SignOut
     };
 
     void Place()

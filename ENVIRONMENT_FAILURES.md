@@ -1,5 +1,9 @@
 # 环境故障记录
 
+- 2026-10-29: notification acceptance report is `ui-selftest.txt`, not `report.txt`; enumerate output files before reading. Release publish exited during restore without diagnostic output under the sandbox; identical scoped require_escalated publish succeeded, followed by serial package build and native window regression.
+
+- 2026-10-29: sandbox allowed builds but rejected Git index.lock writes. Repeated only the scoped Git add/commit/push with require_escalated; succeeded. UI acceptance was then run independently.
+
 - 2026-10-29: `rg src/PwshMcp.Shared/*.cs` treated the wildcard as a literal Windows path; search the directory with `-g '*.cs'`. Do not run overlapping WPF builds sharing obj: one transient build appeared successful while another reported MC3050; serial explicit-project builds give reliable diagnostics.
 
 - 2026-10-29: optional `.impeccable` lookup found no directory; use Test-Path before optional reads. An append patch assumed an exact `#` heading and failed without applying its batch; re-read the actual heading and reapplied. Building the Tray directory returned MSB1050 while WPF temporary projects existed; pass the explicit PwshMcp.Tray.csproj path.

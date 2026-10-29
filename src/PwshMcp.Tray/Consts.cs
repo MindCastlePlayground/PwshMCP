@@ -28,6 +28,7 @@ public static class Names
     public const string ArtifactDir = "artifacts", ArtifactSub = "ui-0.4.0", Report = "ui-selftest.txt", PngExt = ".png";
     public const string Armed = "armed";
     public const string QuietValue = "Quiet", AutoQuietValue = "AutoQuiet";
+    public const string NoticeLife = "pm.notice.life";
     /// <summary>ScrollViewer Tag that turns on the "more above / more below" edge rules (sidebar lists).</summary>
     public const string Rules = "rules";
     /// <summary>Automation id of the footer lifetime link that anchors the lifetime popup.</summary>
@@ -67,6 +68,10 @@ public static class Copy
 
     public static class Notify
     {
+        public static string SignOut => T("直到注销", "Until sign-out");
+        public static string Hour => T("1 小时", "1 hour");
+        public static string Four => T("4 小时", "4 hours");
+        public static string Today => T("今天结束", "End of today");
         public static string Title => T("新的管理员授权请求", "New admin access request");
         public static string Quiet => T("免打扰", "Do not disturb");
         public static string Manual => T("手动免打扰", "Mute notifications");

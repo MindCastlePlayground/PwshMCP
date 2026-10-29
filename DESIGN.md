@@ -47,3 +47,10 @@ Only the detail pane moves: 180 ms opacity 0.35→1 and 4 px rise, exponential e
 
 ## Copy
 Chinese primary (technical identifiers such as PwshMcp.Host.exe and --backend-dir stay as-is). Actions are named by outcome ("批准并开始", "撤销授权"), with Windows access keys in the form "(_A)", errors state cause + next step, never claim success without a broker response. All strings in `Consts.cs → Copy`.
+
+## Request notice window
+
+- Keep Chinese and English notice windows in the same fixed content, lifetime choices, and action order; allow the content area to scroll while the footer stays fixed.
+- Show the window without activating it or taking keyboard focus. Approval must not be the default Enter action.
+- Manual and automatic Do Not Disturb remain independent controls; quiet mode defers notices without changing requests.
+- Batch approval uses only the pending request snapshot captured when the tray menu opens.

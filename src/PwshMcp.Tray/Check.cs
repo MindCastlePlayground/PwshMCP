@@ -261,13 +261,17 @@ public static class Check
         Inline(vm, main, host, sent, r => reply = r, tag, dir);
         Repairs(tag, dir);
 
-        vm.Seed(new Status(Conn.Online, Snap(), Now, "", true, false), Tab.Requests);
+        vm.Seed(new Status(Conn.Online, new Snapshot(), Now, "", true, false), Tab.Requests);
+        var sample = Snap();
+        sample.Grants[0] = sample.Grants[0] with { TaskName = L.T("检查服务状态（示例）", "Check service status (sample)"), ClientName = "Codex", Client = "codex" };
+        sample.Jobs[0] = sample.Jobs[0] with { Run = Spec(L.T("读取 Windows 服务状态", "Read Windows service status"), "Get-Service -Name 'Spooler' | Select-Object Status, Name") };
+        vm.Seed(new Status(Conn.Online, sample, Now, "", true, false), Tab.Requests);
         vm.Seed(new GateInfo(Gate.Ready, "", Now));
         var notice = new NoticeWindow(vm.Requests[0], vm.Requests.Count, () => { }, () => { }, () => { });
         Note(!notice.ShowActivated && !notice.ShowInTaskbar, Report.Layout, "arrival does not activate or occupy taskbar");
         var nh = Detach(notice, K.Panel);
         foreach (var width in new[] { 360, 480 })
-            Lay(nh, width, 560, $"notification {tag} {width}px", dir, "notification", tag, width.ToString());
+            Lay(nh, width, width == 480 ? 640 : 560, $"notification {tag} {width}px", dir, "notification", tag, width.ToString());
 
         var avm = new ApproveVm("grant-pending-0001", null, false);
         var s = Snap();
@@ -463,6 +467,8 @@ public static class Check
     {
         void Fresh(GateInfo g)
         {
+            // A genuinely new synthetic request must not reuse the successful-approval latch of a previous scenario.
+            vm.Seed(new Status(Conn.Online, new Snapshot(), Now, "", true, true), Tab.Requests);
             vm.Seed(new Status(Conn.Online, Snap(), Now, "", true, true), Tab.Requests);
             vm.SelReq = vm.Requests.FirstOrDefault();
             vm.Seed(g);

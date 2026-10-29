@@ -135,6 +135,8 @@ public static class Copy
         public static string Denied => T("已拒绝", "Denied");
         public static string Revoked => T("已撤销", "Revoked");
         public static string Expired => T("已过期", "Expired");
+        public static string TimedOut => T("已超时", "Timed out");
+        public static string Ended => T("已结束", "Ended");
         public static string NeedsApproval => T("等待批准", "Awaiting approval");
         public static string NeedsSession => T("等待会话", "Awaiting session");
         public static string Queued => T("排队中", "Queued");

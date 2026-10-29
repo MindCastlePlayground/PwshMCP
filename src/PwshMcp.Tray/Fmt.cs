@@ -36,13 +36,20 @@ public static class Fmt
         AccessState.Revoked => Copy.State.Revoked, _ => Copy.State.Expired
     };
 
+    public static string Name(AccessInfo g) => g.State == AccessState.Expired ? g.EndReason switch
+    {
+        AccessEnd.RequestTimeout => Copy.State.TimedOut,
+        AccessEnd.Duration => Copy.State.Ended,
+        _ => Copy.State.Expired
+    } : Name(g.State);
+
     public static Tone Tone(AccessState s) => s switch { AccessState.Pending => Tray.Tone.Wait, AccessState.Active => Tray.Tone.On, AccessState.Denied => Tray.Tone.Bad, _ => Tray.Tone.Off };
 
     public static string Name(JobState s) => s switch
     {
         JobState.NeedsApproval => Copy.State.NeedsApproval, JobState.NeedsSession => Copy.State.NeedsSession, JobState.Queued => Copy.State.Queued,
         JobState.Running => Copy.State.Running, JobState.Succeeded => Copy.State.Succeeded, JobState.Failed => Copy.State.Failed,
-        JobState.Cancelled => Copy.State.Cancelled, JobState.Rejected => Copy.State.Rejected, JobState.Expired => Copy.State.Expired, _ => Copy.State.Unknown
+        JobState.Cancelled => Copy.State.Cancelled, JobState.Rejected => Copy.State.Rejected, JobState.Expired => Copy.State.TimedOut, _ => Copy.State.Unknown
     };
 
     public static Tone Tone(JobState s) => s switch

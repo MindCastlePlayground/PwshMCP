@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><UseWPF>true</UseWPF></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/PwshMcp.Host/PwshMcp.Host.csproj" />
+    <ProjectReference Include="../../src/PwshMcp.Tray/PwshMcp.Tray.csproj" />
+  </ItemGroup>
+</Project>

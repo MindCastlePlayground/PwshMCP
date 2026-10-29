@@ -130,7 +130,7 @@ public sealed class GrantVm : Bindable
     public string Submitted => Fmt.Stamp(info.CreatedAt);
     public string RequestEnds => Fmt.Full(info.CreatedAt + Timing.RequestLife);
     public string Age => Fmt.Ago(info.CreatedAt);
-    public string StateName => Fmt.Name(info.State);
+    public string StateName => Fmt.Name(info);
     public Tone Tone => Fmt.Tone(info.State);
     public bool IsPending => info.State == AccessState.Pending;
     public bool IsActive => info.State == AccessState.Active;
@@ -138,7 +138,7 @@ public sealed class GrantVm : Bindable
     public string Head => string.Format(IsPending ? Copy.Detail.From : Copy.Detail.Grant, Client);
     public string Requested => Fmt.Full(info.CreatedAt);
     public string Spoken => string.Format(Copy.Tabs.GrantRow, TaskLine, StateName, Client, RowSub);
-    public string Ends => info.ExpiresAt is { } e ? $"{Fmt.Full(e)} · {Fmt.Left(e)}" : Copy.Detail.SignOut;
+    public string Ends => info.ExpiresAt is { } e ? $"{Fmt.Full(e)} · {(IsEnded ? StateName : Fmt.Left(e))}" : Copy.Detail.SignOut;
     public string RowSub => IsActive ? (info.ExpiresAt is { } e ? Fmt.Left(e) : Copy.Detail.SignOut) : IsPending ? ReasonLine : Fmt.Clock(info.ExpiresAt ?? info.CreatedAt);
     public bool WorkerOn => info.HeartbeatAt is { } h && DateTimeOffset.UtcNow - h <= Timing.Heartbeat;
     public string Worker => WorkerOn ? string.Format(Copy.Detail.WorkerOn, Fmt.ClockSec(info.HeartbeatAt!.Value)) : Copy.Detail.WorkerOff;

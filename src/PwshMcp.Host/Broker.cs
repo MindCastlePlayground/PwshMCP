@@ -149,7 +149,7 @@ internal sealed class Broker
         if(!grants.TryGetValue(r.Id,out var g)||!Owned(g,p)||g.State!=AccessState.Pending)return Fail(Errors.Forbidden);
         if(r.ExpiresAt<=DateTimeOffset.UtcNow)return Fail(Errors.Invalid);
         var stamp=SessionLife.Stamp(g.SessionId);if(stamp==0)return Fail("session_identity_unavailable");
-        g.State=AccessState.Active;g.ExpiresAt=r.ExpiresAt;g.HeartbeatAt=null;
+        g.State=AccessState.Active;g.EndReason=AccessEnd.Unknown;g.ExpiresAt=r.ExpiresAt;g.HeartbeatAt=null;
         sessionStamps[g.Id]=stamp;
         foreach(var j in jobs.Values.Where(j=>Owned(j,p)&&j.Client==g.Client&&j.State==JobState.NeedsApproval)){j.GrantId=g.Id;j.State=JobState.Queued;}
         return new(){Grant=g};
@@ -205,9 +205,9 @@ internal sealed class Broker
                 if(!jobs.Values.Any(j=>j.GrantId==old.Id&&!Terminal(j.State))){grants.Remove(old.Id);grantWorkers.Remove(old.Id);sessionStamps.Remove(old.Id);}
         foreach(var g in grants.Values)
         {
-            if(g.State==AccessState.Pending&&now-g.CreatedAt>TimeSpan.FromHours(24))g.State=AccessState.Expired;
-            if(g.State==AccessState.Active&&g.ExpiresAt<=now)g.State=AccessState.Expired;
-            if(g.State==AccessState.Active&&sessionStamps.TryGetValue(g.Id,out var stamp)&&stamp!=0&&SessionLife.Stamp(g.SessionId)!=stamp)g.State=AccessState.Expired;
+            if(g.State==AccessState.Pending&&now-g.CreatedAt>TimeSpan.FromHours(24))End(g,AccessEnd.RequestTimeout);
+            if(g.State==AccessState.Active&&g.ExpiresAt<=now)End(g,AccessEnd.Duration);
+            if(g.State==AccessState.Active&&sessionStamps.TryGetValue(g.Id,out var stamp)&&stamp!=0&&SessionLife.Stamp(g.SessionId)!=stamp)End(g,AccessEnd.Session);
         }
         foreach(var j in jobs.Values)
         {
@@ -218,6 +218,7 @@ internal sealed class Broker
         }
     }
     private bool Owned(AccessInfo g,Peer p)=>g.Sid==p.Sid&&g.SessionId==p.Session;
+    private static void End(AccessInfo g,AccessEnd reason){g.State=AccessState.Expired;g.EndReason=reason;}
     private bool Owned(JobInfo j,Peer p)=>j.OwnerSid==p.Sid&&j.SessionId==p.Session;
     private static JobInfo SafeJob(JobInfo j)=>j with{Run=j.Run with{Env=[]},Result=j.Result is null?null:j.Result with{Output=""}};
     private static Response Fail(string error)=>new(){Ok=false,Error=error};
@@ -227,7 +228,7 @@ internal sealed class Broker
     private void Restore()
     {
         var previous=store.Load();if(previous is null)return;
-        foreach(var g in previous.Grants){if(g.State is AccessState.Active or AccessState.Pending)g.State=AccessState.Expired;g.HeartbeatAt=null;grants[g.Id]=g;}
+        foreach(var g in previous.Grants){if(g.State is AccessState.Active or AccessState.Pending)End(g,AccessEnd.Restart);g.HeartbeatAt=null;grants[g.Id]=g;}
         foreach(var j in previous.Jobs){if(!Terminal(j.State))j.State=JobState.OutcomeUnknown;jobs[j.Id]=j;}
         foreach(var pair in previous.Fingerprints)fingerprints[pair.Key]=pair.Value;
     }

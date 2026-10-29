@@ -25,6 +25,7 @@ public static class Ops
 }
 public enum JobState { NeedsApproval, NeedsSession, Queued, Running, Succeeded, Failed, Cancelled, Rejected, Expired, OutcomeUnknown }
 public enum AccessState { Pending, Active, Denied, Revoked, Expired }
+public enum AccessEnd { Unknown, RequestTimeout, Duration, Session, Restart }
 public enum Privilege { Normal, Elevated }
 public sealed record RunSpec
 {
@@ -62,6 +63,7 @@ public sealed record AccessInfo
     public string Sid {get;init;}="";
     public int SessionId {get;init;}
     public AccessState State {get;set;}
+    public AccessEnd EndReason {get;set;}
     public DateTimeOffset CreatedAt {get;init;}=DateTimeOffset.UtcNow;
     public DateTimeOffset? ExpiresAt {get;set;}
     public DateTimeOffset? HeartbeatAt {get;set;}

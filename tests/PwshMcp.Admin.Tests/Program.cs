@@ -2,7 +2,17 @@ using PwshMcp.Shared;
 
 internal static class Program
 {
-    static async Task Main()
+    static async Task<int> Main()
+    {
+        try { await Check(); return 0; }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine($"FAIL: installed coordinator check: {error.GetType().Name}: {error.Message}");
+            return 1;
+        }
+    }
+
+    static async Task Check()
     {
         var client = new AdminClient();
         var ready = await client.SendAsync(new() { Op = AdminOp.Status });

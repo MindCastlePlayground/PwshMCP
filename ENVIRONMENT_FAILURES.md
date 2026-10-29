@@ -1,5 +1,7 @@
 # 环境故障记录
 
+- 2026-10-30: sandbox scheduled-task reads returned access denied; protected install operations are queued through the existing tray approval channel. A literal `scripts/*.ps1` rg path was not expanded on Windows; use directory plus `-g`. An optional AdminProtocol.cs read guessed a missing file; the installed coordinator regression uses AdminClient directly, so no extra protocol lookup is needed.
+
 - 2026-10-29: notification acceptance report is `ui-selftest.txt`, not `report.txt`; enumerate output files before reading. Release publish exited during restore without diagnostic output under the sandbox; identical scoped require_escalated publish succeeded, followed by serial package build and native window regression.
 
 - 2026-10-29: sandbox allowed builds but rejected Git index.lock writes. Repeated only the scoped Git add/commit/push with require_escalated; succeeded. UI acceptance was then run independently.

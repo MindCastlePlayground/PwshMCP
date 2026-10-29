@@ -1,0 +1,46 @@
+<Window x:Class="PwshMcp.Tray.NoticeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:t="clr-namespace:PwshMcp.Tray"
+        Title="{x:Static t:Copy+Notify.Title}" Width="480" Height="600" MinWidth="360" MinHeight="320"
+        ShowActivated="False" ShowInTaskbar="False" Topmost="True" ResizeMode="CanResize"
+        Background="{DynamicResource {x:Static t:K.Panel}}" Foreground="{DynamicResource {x:Static t:K.Ink}}"
+        FontFamily="{DynamicResource {x:Static t:K.UiFont}}" UseLayoutRounding="True">
+  <Grid Margin="20">
+    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <ScrollViewer Style="{StaticResource {x:Static t:K.Scroll}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,12">
+      <StackPanel>
+        <TextBlock Text="{Binding Head}" Style="{StaticResource {x:Static t:K.Title}}" FontSize="20" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding TaskName}" Style="{StaticResource {x:Static t:K.Task}}" Margin="0,12,0,6" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding Reason}" Style="{StaticResource {x:Static t:K.Body}}"/>
+        <TextBlock Text="{x:Static t:Copy+Notify.Scope}" Style="{StaticResource {x:Static t:K.Body}}" FontSize="13" Margin="0,16,0,8"/>
+        <ItemsControl ItemsSource="{Binding Scope}" ItemTemplate="{StaticResource {x:Static t:K.Facts}}" Grid.IsSharedSizeScope="True"/>
+        <ItemsControl ItemsSource="{Binding Waiting}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Margin="0,12,0,0">
+                <TextBlock Text="{Binding Desc}" Style="{StaticResource {x:Static t:K.Body}}" Margin="0,0,0,6"/>
+                <t:CodeView Code="{Binding Code}" MaxBody="100"/>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+    <StackPanel Grid.Row="1">
+      <TextBlock x:Name="count" Style="{StaticResource {x:Static t:K.Label}}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+      <TextBlock Text="{Binding Footer}" Style="{StaticResource {x:Static t:K.Body}}" Foreground="{DynamicResource {x:Static t:K.Red}}" FontSize="12" Margin="0,0,0,6"/>
+      <TextBlock x:Name="unavailable" Text="{x:Static t:Copy+Notify.Unavailable}" Style="{StaticResource {x:Static t:K.Label}}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+      <DockPanel Margin="0,0,0,12">
+        <TextBlock Text="{x:Static t:Copy+Approve.DurationHead}" Style="{StaticResource {x:Static t:K.Label}}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+        <ComboBox x:Name="duration" MinHeight="30" IsEnabled="{Binding CanPick}"/>
+      </DockPanel>
+      <UniformGrid Columns="3">
+        <Button Style="{StaticResource {x:Static t:K.Secondary}}" Content="{x:Static t:Copy+Notify.Later}" Click="OnLater" Margin="0,0,6,0"/>
+        <Button Style="{StaticResource {x:Static t:K.Secondary}}" Content="{x:Static t:Copy+Notify.Details}" Click="OnDetails" Margin="0,0,6,0"/>
+        <Button Style="{StaticResource {x:Static t:K.Primary}}" Content="{Binding ApproveText}" IsEnabled="{Binding CanApprove}" Click="OnApprove"/>
+      </UniformGrid>
+      <Button Style="{StaticResource {x:Static t:K.Secondary}}" Content="{x:Static t:Copy+Notify.Enable}" Click="OnMute" Margin="0,10,0,0"/>
+    </StackPanel>
+  </Grid>
+</Window>

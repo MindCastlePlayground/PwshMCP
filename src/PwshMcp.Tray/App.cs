@@ -80,7 +80,7 @@ public sealed class App : Application
         ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => Dispatcher.BeginInvoke(() => Show(null)), null, -1, false);
 
         monitor = new Monitor(args.BackendDir, s => Dispatcher.BeginInvoke(DispatcherPriority.Background, () => Publish(s)));
-        coord = new Coord(g => Dispatcher.BeginInvoke(DispatcherPriority.Background, () => { if (!Quitting) vm?.Apply(g); }));
+        coord = new Coord(g => Dispatcher.BeginInvoke(DispatcherPriority.Background, () => { if (!Quitting) { vm?.Apply(g); tray?.Render(); } }));
         vm = new MainVm(monitor, coord);
         tray = new TrayHost(vm, Show, Quit);
         L.Changed += () => Dispatcher.BeginInvoke(Relang);

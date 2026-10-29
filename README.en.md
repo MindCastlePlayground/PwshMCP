@@ -21,7 +21,9 @@ Approve elevated commands in the tray instead of a UAC prompt per command. Indep
 
 ---
 
-PwshMCP consists of a local stdio MCP server and a Windows tray app. You authorize installation as administrator once, which sets up a background elevated execution entry point for the **current user**. After that, elevated requests from agents show up in the tray, where you pick a lifetime and approve. New requests update the tray without stealing focus.
+PwshMCP consists of a local stdio MCP server and a Windows tray app. You authorize installation as administrator once, which sets up a background elevated execution entry point for the **current user**. New requests appear in a native window without stealing focus. Pick a lifetime and approve there, or use the tray.
+
+The tray menu can approve one request or all current requests and enable manual Do Not Disturb. Automatic muting is on by default during full screen, presentations and other Windows busy states. Pending indicators remain visible, and deferred requests share one notification when muting ends. Approve all applies only to the current list, never future arrivals. See [notification behavior](docs/NOTIFICATIONS.md).
 
 <a id="version-note"></a>
 

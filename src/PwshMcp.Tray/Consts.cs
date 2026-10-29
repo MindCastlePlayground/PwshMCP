@@ -27,6 +27,7 @@ public static class Names
     public const string ZhTag = "zh", EnTag = "en", ZhCulture = "zh-CN", EnCulture = "en-US";
     public const string ArtifactDir = "artifacts", ArtifactSub = "ui-0.4.0", Report = "ui-selftest.txt", PngExt = ".png";
     public const string Armed = "armed";
+    public const string QuietValue = "Quiet", AutoQuietValue = "AutoQuiet";
     /// <summary>ScrollViewer Tag that turns on the "more above / more below" edge rules (sidebar lists).</summary>
     public const string Rules = "rules";
     /// <summary>Automation id of the footer lifetime link that anchors the lifetime popup.</summary>
@@ -63,6 +64,27 @@ public static class Copy
     /// <summary>Tray build version (major.minor.patch) from the assembly, shown beside the product name.</summary>
     public static string Version => typeof(Copy).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "";
     static string T(string zh, string en) => L.T(zh, en);
+
+    public static class Notify
+    {
+        public static string Title => T("新的管理员授权请求", "New admin access request");
+        public static string Quiet => T("免打扰", "Do not disturb");
+        public static string Manual => T("手动免打扰", "Mute notifications");
+        public static string Auto => T("全屏或演示时自动免打扰", "Mute during full screen or presentation");
+        public static string Muted => T("免打扰中 · 请求仍会保留", "Muted · requests are kept");
+        public static string AutoMuted => T("自动免打扰中 · 请求仍会保留", "Automatically muted · requests are kept");
+        public static string Enable => T("进入免打扰", "Mute notifications");
+        public static string Later => T("稍后处理", "Later");
+        public static string Details => T("查看详情", "View details");
+        public static string Pending => T("还有 {0} 个请求待处理", "{0} more requests waiting");
+        public static string Select => T("批准指定请求", "Approve a request");
+        public static string All => T("批准当前全部请求（{0}）", "Approve all current requests ({0})");
+        public static string Duration => T("快捷批准有效期", "Quick approval duration");
+        public static string Result => T("已批准 {0} 个，未批准 {1} 个。", "Approved: {0}. Not approved: {1}.");
+        public static string Scope => T("将允许该客户端在此 Windows 登录会话中以管理员身份运行命令；不限于此任务。", "Allows this client to run admin commands in this Windows sign-in session, beyond this task.");
+        public static string SavedFailed => T("无法保存免打扰设置：{0}", "Couldn't save notification settings: {0}");
+        public static string Unavailable => T("连接或执行器未就绪，请在主界面修复后批准。", "Connection or executor unavailable. Repair it in the main window before approving.");
+    }
 
     public static class Tray
     {

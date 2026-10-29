@@ -1,5 +1,9 @@
 # 环境故障记录
 
+- 2026-10-29: `rg src/PwshMcp.Shared/*.cs` treated the wildcard as a literal Windows path; search the directory with `-g '*.cs'`. Do not run overlapping WPF builds sharing obj: one transient build appeared successful while another reported MC3050; serial explicit-project builds give reliable diagnostics.
+
+- 2026-10-29: optional `.impeccable` lookup found no directory; use Test-Path before optional reads. An append patch assumed an exact `#` heading and failed without applying its batch; re-read the actual heading and reapplied. Building the Tray directory returned MSB1050 while WPF temporary projects existed; pass the explicit PwshMcp.Tray.csproj path.
+
 ## 2026-10-27：并行 UI 目录尚未创建
 
 - `rg --files src/PwshMcp.Tray` 在 Claude 尚在设计时返回目录不存在。

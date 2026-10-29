@@ -261,6 +261,14 @@ public static class Check
         Inline(vm, main, host, sent, r => reply = r, tag, dir);
         Repairs(tag, dir);
 
+        vm.Seed(new Status(Conn.Online, Snap(), Now, "", true, false), Tab.Requests);
+        vm.Seed(new GateInfo(Gate.Ready, "", Now));
+        var notice = new NoticeWindow(vm.Requests[0], vm.Requests.Count, () => { }, () => { }, () => { });
+        Note(!notice.ShowActivated && !notice.ShowInTaskbar, Report.Layout, "arrival does not activate or occupy taskbar");
+        var nh = Detach(notice, K.Panel);
+        foreach (var width in new[] { 360, 480 })
+            Lay(nh, width, 560, $"notification {tag} {width}px", dir, "notification", tag, width.ToString());
+
         var avm = new ApproveVm("grant-pending-0001", null, false);
         var s = Snap();
         avm.Seed(s.Grants[0], s.Jobs.Where(j => j.GrantId == s.Grants[0].Id));

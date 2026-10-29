@@ -177,7 +177,8 @@ public sealed class GrantVm : Bindable
     public string TodayEnd => Preview(Life.Today);
     static string Preview(Life l) => Lives.End(l) is { } e ? string.Format(Copy.Inline.Until, Fmt.Full(e)) : Copy.Inline.AtSignOut;
     public string Applies => string.Format(Copy.Inline.Applies, Client);
-    public bool CanApprove => main.Ready && !sending;
+    public bool Accepted { get; private set; }
+    public bool CanApprove => IsPending && main.Ready && !sending && !Accepted;
     public string Allows => string.Format(Copy.Inline.Allows, Client);
     public bool GateBad => main.GateBad;
     public string GateBody => main.GateBody;
@@ -191,14 +192,14 @@ public sealed class GrantVm : Bindable
     /// <summary>One click, one exchange. Success only when the executor returns the grant as Active; anything else leaves the request waiting.</summary>
     public async Task Submit()
     {
-        if (sending || !IsPending) return;
+        if (!CanApprove) return;
         Sending = true; Say("", false);
         try
         {
             var r = await main.Admin(AdminOp.Approve, Id, Until);
             if (!r.Ok) Say(string.Format(Copy.Inline.Failed, Fmt.Err(r)), true);
             else if (r.Grant?.State != AccessState.Active) Say(string.Format(Copy.Inline.NotActive, r.Grant is { } g ? Fmt.Name(g.State) : Copy.Err.NoResponse), true);
-            else main.Approved(Id);
+            else { Accepted = true; main.Approved(Id); }
         }
         catch (Exception e) { Say(string.Format(Copy.Inline.Failed, e is UnauthorizedAccessException ? Copy.Gate.Untrusted : Fmt.Err(e)), true); }
         finally { Sending = false; }

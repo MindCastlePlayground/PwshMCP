@@ -17,23 +17,31 @@ public sealed class TrayHost : IDisposable
     readonly uint taskbarCreated;
     readonly MainVm vm;
     readonly Action<Tab?> show;
-    readonly Action quit;
+    readonly Action quit, warm;
     readonly NoticePrefs prefs = NoticePrefs.Load();
     readonly NoticeQueue notices = new();
     readonly Forms.ToolStripMenuItem approve = new(), approveAll = new(), duration = new(), quiet = new(), manual = new(), automatic = new();
+    readonly Forms.ToolStripMenuItem sound = new(), soundOn = new(), soundTry = new();
+    readonly System.Drawing.Font bold;
     NoticeWindow? popup;
     string? popupId;
-    bool muted, approving, disposed;
+    Hush hush;
+    bool approving, disposed;
+    bool Muted => hush != Hush.None;
     Life quickLife = Life.SignOut;
     (Glyph, bool, bool) current = (Glyph.App, false, false);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern uint RegisterWindowMessage(string name);
 
-    public TrayHost(MainVm vm, Action<Tab?> show, Action quit)
+    /// <summary>A notice is open or a quick approval is running; the main window must not be torn down meanwhile.</summary>
+    public bool Busy => approving || popup is not null;
+
+    public TrayHost(MainVm vm, Action<Tab?> show, Action quit, Action warm)
     {
-        this.vm = vm; this.show = show; this.quit = quit;
+        this.vm = vm; this.show = show; this.quit = quit; this.warm = warm;
         status = new(Copy.Conn.Connecting) { Enabled = false };
-        open = new(Copy.Tray.Open, null, (_, _) => show(null)) { Font = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold) };
+        bold = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold);
+        open = new(Copy.Tray.Open, null, (_, _) => show(null)) { Font = bold };
         review = new(string.Format(Copy.Tray.Review, 0), null, (_, _) => show(Tab.Requests)) { Visible = false };
         // Opens the repair window only; nothing is started until the user clicks inside it.
         repair = new(Copy.Fix.Menu, null, (_, _) => { show(null); vm.Fix.Ask(vm.Fix.Worst); });
@@ -48,9 +56,14 @@ public sealed class TrayHost : IDisposable
         manual.Click += (_, _) => SetQuiet(manual.Checked, prefs.Auto);
         automatic.Click += (_, _) => SetQuiet(prefs.Manual, automatic.Checked);
         quiet.DropDownItems.AddRange([manual, automatic]);
+        soundOn.CheckOnClick = true;
+        soundOn.Click += (_, _) => { prefs.Sound = soundOn.Checked; Save(); };
+        // Plays only on this click. It changes no setting and no access.
+        soundTry.Click += (_, _) => Ring(true);
+        sound.DropDownItems.AddRange([soundOn, soundTry]);
         menu.Opening += (_, _) => Menu();
         approveAll.Click += async (_, _) => { if (approveAll.Tag is string[] ids) await Approve(ids, quickLife); };
-        menu.Items.AddRange([status, new Forms.ToolStripSeparator(), open, review, approve, approveAll, duration, quiet, repair, new Forms.ToolStripSeparator(), revoke, lang, new Forms.ToolStripSeparator(), exit]);
+        menu.Items.AddRange([status, new Forms.ToolStripSeparator(), open, review, approve, approveAll, duration, quiet, sound, repair, new Forms.ToolStripSeparator(), revoke, lang, new Forms.ToolStripSeparator(), exit]);
         icon.ContextMenuStrip = menu;
         icon.Text = Copy.Tray.Offline;
         icon.DoubleClick += (_, _) => show(null);
@@ -82,18 +95,23 @@ public sealed class TrayHost : IDisposable
     public void Render(bool force = false)
     {
         if (disposed) return;
-        muted = prefs.Manual || prefs.Auto && QuietProbe.Muted();
+        var (full, quiet) = QuietProbe.Read();
+        hush = Hushes.Of(prefs.Manual, prefs.Auto, full, quiet);
         var s = vm.Status;
         var glyph = s.Conn != Conn.Online ? Glyph.Offline : vm.ActiveCount > 0 ? Glyph.Active : Glyph.Idle;
         var pending = vm.PendingCount > 0;
         var key = (glyph, Theme.BarLight, pending);
         if (force || key != current)
         {
-            if (force) { foreach (var i in cache.Values) i.Dispose(); cache.Clear(); }
+            // Old icons are disposed only after the new one is in place.
+            var stale = force ? cache.Values.ToList() : [];
+            if (force) cache.Clear();
             if (!cache.TryGetValue(key, out var ic)) cache[key] = ic = Glyphs.TrayIcon(glyph, key.Item2, pending);
             icon.Icon = ic; current = key;
+            foreach (var i in stale) i.Dispose();
         }
-        icon.Text = Clip(Tip(glyph, pending) + (muted ? " · " + Copy.Notify.Quiet : ""));
+        // Full screen holds notices back silently; only a chosen or Windows quiet mode is named.
+        icon.Text = Clip(Tip(glyph, pending) + (hush is Hush.Manual or Hush.Auto ? " · " + Copy.Notify.Quiet : ""));
         status.Text = s.Conn == Conn.Online ? vm.ConnDetail : $"{vm.ConnTitle} · {s.Detail}";
         review.Text = string.Format(Copy.Tray.Review, vm.PendingCount);
         review.Visible = pending;
@@ -107,6 +125,11 @@ public sealed class TrayHost : IDisposable
     void SetQuiet(bool manual, bool auto)
     {
         prefs.Manual = manual; prefs.Auto = auto;
+        Save();
+    }
+
+    void Save()
+    {
         try { prefs.Save(); }
         catch (Exception e) { vm.Fault(new InvalidOperationException(string.Format(Copy.Notify.SavedFailed, e.Message))); }
         Render();
@@ -138,9 +161,12 @@ public sealed class TrayHost : IDisposable
             item.Click += (_, _) => quickLife = life;
             duration.DropDownItems.Add(item);
         }
-        quiet.Text = muted ? (prefs.Manual ? Copy.Notify.Muted : Copy.Notify.AutoMuted) : Copy.Notify.Quiet;
+        quiet.Text = hush switch { Hush.Manual => Copy.Notify.Muted, Hush.Auto => Copy.Notify.AutoMuted, _ => Copy.Notify.Quiet };
         manual.Text = Copy.Notify.Manual; manual.Checked = prefs.Manual;
         automatic.Text = Copy.Notify.Auto; automatic.Checked = prefs.Auto;
+        sound.Text = Copy.Notify.Sound;
+        soundOn.Text = Copy.Notify.SoundOn; soundOn.Checked = prefs.Sound;
+        soundTry.Text = Copy.Notify.SoundTry;
     }
 
     static void Clear(Forms.ToolStripMenuItem item)
@@ -155,8 +181,7 @@ public sealed class TrayHost : IDisposable
         try
         {
             var result = await QuickApproval.Run(vm, ids, life);
-            if (!disposed)
-                icon.ShowBalloonTip(4000, Copy.Product, string.Format(Copy.Notify.Result, result.Ok, result.Failed), result.Failed > 0 ? Forms.ToolTipIcon.Warning : Forms.ToolTipIcon.None);
+            Balloon(string.Format(Copy.Notify.Result, result.Ok, result.Failed), result.Failed > 0);
         }
         finally { approving = false; Render(); }
     }
@@ -164,8 +189,9 @@ public sealed class TrayHost : IDisposable
     void Notify()
     {
         var ids = Pending();
-        var next = notices.Next(ids, muted || !vm.Online);
-        if (popup is not null && (muted || !vm.Online || !ids.Contains(popupId)))
+        var next = notices.Next(ids, Muted || !vm.Online);
+        // Entering full screen or quiet time takes an open notice down; its request comes back when it ends.
+        if (popup is not null && (Muted || !vm.Online || !ids.Contains(popupId)))
         {
             if (popupId is not null && ids.Contains(popupId)) notices.Defer(popupId);
             ClosePopup();
@@ -177,13 +203,28 @@ public sealed class TrayHost : IDisposable
         grant.Pick(quickLife);
         notices.Seen(next);
         popupId = next;
+        // Only a newly presented notice builds windows: a dismissed or already shown id never reaches here again.
+        warm();
         var window = new NoticeWindow(grant, ids.Length,
             () => { vm.SelReq = grant; show(Tab.Requests); },
             () => notices.Dismiss(Pending()),
             () => SetQuiet(true, prefs.Auto));
         popup = window;
         window.Closed += (_, _) => { if (popup == window) { popup = null; popupId = null; } };
+        window.Warm();
         window.Show();
+        if (prefs.Sound) Ring(false);
+    }
+
+    /// <summary>A failed sample says so in a balloon; a failed request chime lands in the window's error line instead of interrupting again.</summary>
+    async void Ring(bool sample)
+    {
+        try { await Chime.Play(); }
+        catch (Exception e)
+        {
+            var text = string.Format(Copy.Notify.SoundFailed, e.Message);
+            if (sample) Balloon(text, true); else vm.Fault(new InvalidOperationException(text));
+        }
     }
 
     void ClosePopup()
@@ -197,7 +238,7 @@ public sealed class TrayHost : IDisposable
     {
         if (popupId is not null) notices.Defer(popupId);
         ClosePopup();
-        open.Text = Copy.Tray.Open; repair.Text = Copy.Fix.Menu; revoke.Text = Copy.Tray.RevokeAll; exit.Text = Copy.Tray.Exit; lang.Text = Copy.Tray.Language;
+        open.Text = Copy.Tray.Open; sound.Text = Copy.Notify.Sound; repair.Text = Copy.Fix.Menu; revoke.Text = Copy.Tray.RevokeAll; exit.Text = Copy.Tray.Exit; lang.Text = Copy.Tray.Language;
         Render();
     }
 
@@ -219,8 +260,14 @@ public sealed class TrayHost : IDisposable
     {
         var (ok, error) = await vm.RevokeActive();
         var text = error is null ? string.Format(Copy.Tray.RevokedAll, ok) : $"{Copy.Tray.RevokeFailed}: {error}";
-        // Result of a user action, shown as a quiet notification; it does not take focus.
-        icon.ShowBalloonTip(4000, Copy.Product, text, error is null ? Forms.ToolTipIcon.None : Forms.ToolTipIcon.Warning);
+        Balloon(text, error is not null);
+    }
+
+    /// <summary>Result of a user action, shown as a quiet notification that takes no focus. Never shown over a full-screen app.</summary>
+    void Balloon(string text, bool warn)
+    {
+        if (disposed || QuietProbe.Read().Full) return;
+        icon.ShowBalloonTip(Timing.Balloon, Copy.Product, text, warn ? Forms.ToolTipIcon.Warning : Forms.ToolTipIcon.None);
     }
 
     public void Dispose()
@@ -228,7 +275,7 @@ public sealed class TrayHost : IDisposable
         disposed = true;
         ClosePopup();
         icon.Visible = false;
-        icon.Dispose(); menu.Dispose(); sink.Dispose();
+        icon.Dispose(); menu.Dispose(); sink.Dispose(); bold.Dispose();
         foreach (var i in cache.Values) i.Dispose();
     }
 }

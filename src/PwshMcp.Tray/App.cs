@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -17,6 +18,8 @@ public sealed class App : Application
     MainVm? vm;
     MainWindow? window;
     TrayHost? tray;
+    Reclaim? reclaim;
+    (Rect Box, bool Max) spot = (Rect.Empty, false);
     Mutex? single;
     EventWaitHandle? showSignal;
 
@@ -82,7 +85,10 @@ public sealed class App : Application
         monitor = new Monitor(args.BackendDir, s => Dispatcher.BeginInvoke(DispatcherPriority.Background, () => Publish(s)));
         coord = new Coord(g => Dispatcher.BeginInvoke(DispatcherPriority.Background, () => { if (!Quitting) { vm?.Apply(g); tray?.Render(); } }));
         vm = new MainVm(monitor, coord);
-        tray = new TrayHost(vm, Show, Quit);
+        // Nothing is built until it is needed: the tray runs lean until a notice or the user opens the window.
+        vm.Shrink();
+        reclaim = new Reclaim(Timing.Reclaim, Hold, Drop);
+        tray = new TrayHost(vm, Show, Quit, Warm);
         L.Changed += () => Dispatcher.BeginInvoke(Relang);
         monitor.Start();
         coord.Start();
@@ -102,10 +108,51 @@ public sealed class App : Application
         if (window is null) return;
         var old = window;
         var open = old.IsVisible && old.WindowState != WindowState.Minimized;
-        window = new MainWindow(vm);
-        window.Take(old);
+        spot = old.Spot;
+        window = Make();
         old.Retire();
-        if (open) window.Present(vm.Tab);
+        if (open) window.Present(vm.Tab); else reclaim?.Arm();
+    }
+
+    MainWindow Make()
+    {
+        var w = new MainWindow(vm!);
+        w.Take(spot);
+        w.IsVisibleChanged += (_, _) => Idle(w);
+        w.StateChanged += (_, _) => Idle(w);
+        return w;
+    }
+
+    /// <summary>Hidden or minimized starts the teardown countdown; on screen stops it.</summary>
+    void Idle(MainWindow w)
+    {
+        if (!ReferenceEquals(w, window) || Quitting) return;
+        if (w.IsVisible && w.WindowState != WindowState.Minimized) reclaim?.Cancel(); else reclaim?.Arm();
+    }
+
+    bool Hold() => window is { } w && (w.IsVisible && w.WindowState != WindowState.Minimized || w.Fix is { IsVisible: true })
+        || vm?.Busy == true || tray?.Busy == true;
+
+    /// <summary>Tears the idle window down, keeps only its placement, and lets the view model go lean. One collection, here only.</summary>
+    void Drop()
+    {
+        if (window is not { } w || vm is null || Quitting) return;
+        spot = w.Spot;
+        window = null;
+        w.Retire();
+        vm.Shrink();
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(2, GCCollectionMode.Optimized, true, true);
+    }
+
+    /// <summary>A new notice is about to appear: have the window built and laid out (never shown) so Details opens at once.</summary>
+    void Warm()
+    {
+        if (vm is null || Quitting || window is not null) return;
+        vm.Grow();
+        window = Make();
+        window.Warm();
+        reclaim?.Arm();
     }
 
     void Publish(Status s)
@@ -118,7 +165,9 @@ public sealed class App : Application
     void Show(Tab? tab)
     {
         if (vm is null || Quitting) return;
-        window ??= new MainWindow(vm);
+        reclaim?.Cancel();
+        vm.Grow();
+        window ??= Make();
         window.Present(tab);
     }
 
@@ -127,6 +176,7 @@ public sealed class App : Application
         if (monitor is null || vm is null) return;
         if (!ExitPrompt.Confirm(monitor.Owns, vm.RunningCount)) return;
         Quitting = true;
+        reclaim?.Cancel();
         tray?.Dispose();
         window?.Close();
         coord?.Dispose();

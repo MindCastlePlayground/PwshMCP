@@ -67,7 +67,8 @@ public sealed record Fact(string Label, string Value);
 public sealed class CmdVm
 {
     readonly RunSpec run;
-    public CmdVm(JobInfo j) { run = j.Run; }
+    public CmdVm(JobInfo j) : this(j.Run) { }
+    public CmdVm(RunSpec run) { this.run = run; }
     public string Code => run.Code;
     public string Cwd => run.Cwd;
     public string Meta
@@ -241,10 +242,12 @@ public sealed class JobVm : Bindable
     readonly MainVm main;
     JobInfo job;
     bool shown; string notice = ""; bool bad;
+    // Output is fetched from the broker only while shown, and dropped again when hidden.
+    string? text, errors, fail; bool loading, cut;
     public JobVm(MainVm main, JobInfo j)
     {
         this.main = main; job = j; Id = j.Id; Cmd = new CmdVm(j);
-        Toggle = new Relay(() => Shown = !Shown, () => job.Result is not null);
+        Toggle = new Relay(Flip, () => job.Result is not null);
         Cancel = new Confirm(() => Copy.Detail.Cancel, () => Copy.Detail.ConfirmCancel, () => main.Act(Ops.Cancel, Id, this, () => Copy.Detail.Cancelled, () => Copy.Verb.Cancel), () => Fmt.Live(job.State));
     }
     public string Id { get; }
@@ -279,20 +282,78 @@ public sealed class JobVm : Bindable
     public string Identity => job.Result?.Identity ?? "";
     public string ExitCode => job.Result?.ExitCode.ToString() ?? "";
     public string Environment => job.Result is { } r ? Fmt.ClockSec(r.EnvironmentAt) : "";
-    public bool Shown { get => shown; set { if (Set(ref shown, value)) { Raise(nameof(ToggleText)); Raise(nameof(Output)); Raise(nameof(Errors)); } } }
+    public bool Shown
+    {
+        get => shown;
+        set
+        {
+            if (!Set(ref shown, value)) return;
+            if (!value) { text = errors = fail = null; cut = false; }
+            Raise(nameof(ToggleText)); Raise(nameof(Output)); Raise(nameof(Errors)); Raise(nameof(OutputHint));
+        }
+    }
     public string ToggleText => Shown ? Copy.Detail.HideOutput : Copy.Detail.ShowOutput;
-    public string OutputHint => job.Result is null ? Copy.Detail.OutputPending : Copy.Detail.OutputWarn;
-    public string Output => !Shown || job.Result is null ? "" : string.IsNullOrEmpty(job.Result.Output) && string.IsNullOrEmpty(job.Result.Error) ? Copy.Detail.NoOutput : job.Result.Output;
-    public string Errors => Shown ? job.Result?.Error ?? "" : "";
+    public string OutputHint => job.Result is null ? Copy.Detail.OutputPending : cut ? string.Format(Copy.Detail.OutputCut, Limits.Output) : Copy.Detail.OutputWarn;
+    public string Output => !Shown || job.Result is null ? "" : loading ? Copy.Detail.OutputLoading : fail is not null ? fail
+        : string.IsNullOrEmpty(text) && string.IsNullOrEmpty(Errors) ? Copy.Detail.NoOutput : text ?? "";
+    public string Errors => Shown ? errors ?? job.Result?.Error ?? "" : "";
+    /// <summary>True while output fetched from the broker is held in memory.</summary>
+    public bool Holds => text is not null || errors is not null;
+    public bool Loading => loading;
+
+    async Task Flip()
+    {
+        Shown = !Shown;
+        if (!Shown || loading || text is not null) return;
+        loading = true; Raise(nameof(Output));
+        try
+        {
+            var (t, e, c) = await main.Read(Id);
+            // Hidden again while loading: keep nothing.
+            if (Shown) { text = t; errors = e; cut = c; }
+        }
+        catch (Exception x) { if (Shown) fail = string.Format(Copy.Detail.OutputFailed, Fmt.Err(x)); }
+        finally { loading = false; Raise(nameof(Output)); Raise(nameof(Errors)); Raise(nameof(OutputHint)); }
+    }
     public string Notice { get => notice; private set => Set(ref notice, value); }
     public bool NoticeBad { get => bad; private set => Set(ref bad, value); }
     public void Say(string text, bool error) { NoticeBad = error; Notice = text; }
     public void Touch() => Raise(string.Empty);
+    // Snapshots carry finished tasks without their code; the full command is read only while the task is selected.
+    RunSpec? full; int ask;
+    /// <summary>True while a command read on selection is held in memory.</summary>
+    public bool HoldsCmd => full is not null;
+
+    /// <summary>Reads the full command once for the selected task. A reply that lands after deselection is dropped.</summary>
+    public async Task Fetch()
+    {
+        if (full is not null || !string.IsNullOrEmpty(job.Run.Code)) return;
+        var mine = ++ask;
+        try
+        {
+            var r = await main.Send(new Request { Op = Ops.Status, Id = Id });
+            if (mine != ask) return;
+            if (!r.Ok || r.Job is null) { Say(string.Format(Copy.Detail.CommandFailed, Fmt.Err(r)), true); return; }
+            full = r.Job.Run; Cmd = new CmdVm(full);
+        }
+        catch (Exception x) { if (mine == ask) Say(string.Format(Copy.Detail.CommandFailed, Fmt.Err(x)), true); return; }
+        Raise(string.Empty);
+    }
+
+    /// <summary>Lets go of the fetched command and cancels any read in flight.</summary>
+    public void Drop()
+    {
+        ask++;
+        if (full is null) return;
+        full = null; Cmd = new CmdVm(job);
+        Raise(string.Empty);
+    }
+
     public void Update(JobInfo j)
     {
         var codeChanged = j.Run.Code != job.Run.Code || j.Run.Description != job.Run.Description;
         job = j;
-        if (codeChanged) Cmd = new CmdVm(j);
+        if (codeChanged && full is null) Cmd = new CmdVm(j);
         Raise(string.Empty);
     }
 }
@@ -448,6 +509,42 @@ public sealed class MainVm : Bindable
     Tab tab = Tab.Requests;
     GrantVm? selReq, selAcc; JobVm? selTask;
 
+    /// <summary>Every broker call from the window (command, output, deny/revoke/cancel). The offline tests swap it for a fake.</summary>
+    internal Func<Request, Task<Response>> Send = r => Launch.Send(r);
+
+    /// <summary>
+    /// Lean while no main window exists: only what the tray shows (pending requests, active access, live tasks) is kept as view models.
+    /// History is rebuilt from the last snapshot when the window is opened again.
+    /// </summary>
+    public bool Lean { get; private set; }
+    public void Shrink() { if (Lean) return; Lean = true; Rebuild(); }
+    public void Grow() { if (!Lean) return; Lean = false; Rebuild(); }
+    void Rebuild() { foreach (var t in Tasks) { t.Shown = false; t.Drop(); } Apply(status); Want(); }
+
+    /// <summary>An approval, repair or output fetch is in flight; the window must not be torn down under it.</summary>
+    public bool Busy => Requests.Concat(Access).Any(g => g.Sending) || Tasks.Any(t => t.Loading) || Fix.Conn.Busy || Fix.Exec.Busy;
+    /// <summary>Ids remembered across polls (seen requests, approvals awaiting handoff); bounded by the current snapshot.</summary>
+    internal int Remembered => seen.Count + handoff.Count;
+
+    /// <summary>Reads a finished task's output in chunks, up to <see cref="Limits.Output"/> characters. Errors come from the same answer.</summary>
+    public async Task<(string Text, string? Errors, bool Cut)> Read(string id)
+    {
+        var sb = new System.Text.StringBuilder();
+        string? errors = null;
+        var cursor = 0;
+        while (true)
+        {
+            var r = await Send(new Request { Op = Ops.Output, Id = id, Cursor = cursor });
+            if (!r.Ok) throw new InvalidOperationException(Fmt.Err(r));
+            errors ??= r.Job?.Result?.Error;
+            var chunk = r.Output ?? "";
+            sb.Append(chunk);
+            if (sb.Length > Limits.Output) return (sb.ToString(0, Limits.Output), errors, true);
+            if (chunk.Length == 0 || r.Cursor <= cursor) return (sb.ToString(), errors, false);
+            cursor = r.Cursor;
+        }
+    }
+
     public MainVm(Monitor monitor, Coord coord)
     {
         this.monitor = monitor; this.coord = coord; status = monitor.Current; gate = coord.Current;
@@ -528,7 +625,7 @@ public sealed class MainVm : Bindable
     public string TasksTab => Count(Copy.Tabs.Tasks, LiveCount);
     static string Count(string s, int n) => n > 0 ? $"{s}  {n}" : s;
 
-    public Tab Tab { get => tab; set { if (Set(ref tab, value)) { See(); Raise(nameof(Selected)); Raise(nameof(IsEmpty)); Raise(nameof(EmptyHead)); Raise(nameof(EmptyBody)); Raise(nameof(IsReq)); Raise(nameof(IsAcc)); Raise(nameof(IsTask)); } } }
+    public Tab Tab { get => tab; set { if (Set(ref tab, value)) { See(); Want(); Raise(nameof(Selected)); Raise(nameof(IsEmpty)); Raise(nameof(EmptyHead)); Raise(nameof(EmptyBody)); Raise(nameof(IsReq)); Raise(nameof(IsAcc)); Raise(nameof(IsTask)); } } }
     public bool IsReq { get => tab == Tab.Requests; set { if (value) Tab = Tab.Requests; } }
     public bool IsAcc { get => tab == Tab.Access; set { if (value) Tab = Tab.Access; } }
     public bool IsTask { get => tab == Tab.Tasks; set { if (value) Tab = Tab.Tasks; } }
@@ -539,7 +636,23 @@ public sealed class MainVm : Bindable
     public bool Viewing { get => viewing; set { viewing = value; See(); } }
     void See() { if (viewing && tab == Tab.Requests && selReq is { } r) { seen.Add(r.Id); r.IsNew = false; } }
     public GrantVm? SelAcc { get => selAcc; set { if (Set(ref selAcc, value)) Raise(nameof(Selected)); } }
-    public JobVm? SelTask { get => selTask; set { if (Set(ref selTask, value)) Raise(nameof(Selected)); } }
+    public JobVm? SelTask
+    {
+        get => selTask;
+        set
+        {
+            var old = selTask;
+            if (!Set(ref selTask, value)) return;
+            old?.Drop(); Want();
+            Raise(nameof(Selected));
+        }
+    }
+    /// <summary>The selected task's full command is held only while its detail can be on screen.</summary>
+    void Want()
+    {
+        if (selTask is not { } t) return;
+        if (tab == Tab.Tasks && !Lean) _ = t.Fetch(); else t.Drop();
+    }
     public object? Selected => tab switch { Tab.Requests => selReq, Tab.Access => selAcc, _ => selTask };
     public bool IsEmpty => tab switch { Tab.Requests => Requests.Count == 0, Tab.Access => Access.Count == 0, _ => Tasks.Count == 0 };
     public string EmptyHead => tab switch { Tab.Requests => Copy.Empty.RequestsHead, Tab.Access => Copy.Empty.AccessHead, _ => Copy.Empty.TasksHead };
@@ -552,9 +665,9 @@ public sealed class MainVm : Bindable
         {
             var jobs = snap.Jobs;
             Sync(Requests, snap.Grants.Where(g => g.State == AccessState.Pending).OrderByDescending(g => g.CreatedAt), g => g.Id, g => new GrantVm(this, g), (vm, g) => vm.Update(g, jobs));
-            Sync(Access, snap.Grants.Where(g => g.State != AccessState.Pending).OrderBy(g => g.State == AccessState.Active ? 0 : 1).ThenByDescending(g => g.ExpiresAt ?? g.CreatedAt),
+            Sync(Access, snap.Grants.Where(g => Lean ? g.State == AccessState.Active : g.State != AccessState.Pending).OrderBy(g => g.State == AccessState.Active ? 0 : 1).ThenByDescending(g => g.ExpiresAt ?? g.CreatedAt),
                 g => g.Id, g => new GrantVm(this, g), (vm, g) => vm.Update(g, jobs));
-            Sync(Tasks, jobs.OrderByDescending(j => j.CreatedAt), j => j.Id, j => new JobVm(this, j), (vm, j) => vm.Update(j));
+            Sync(Tasks, jobs.Where(j => !Lean || Fmt.Live(j.State)).OrderByDescending(j => j.CreatedAt), j => j.Id, j => new JobVm(this, j), (vm, j) => vm.Update(j));
             See();
             foreach (var r in Requests) r.IsNew = !seen.Contains(r.Id);
             if (selReq is not null && !Requests.Contains(selReq)) SelReq = null;
@@ -566,6 +679,9 @@ public sealed class MainVm : Bindable
                 g.Say(Copy.Inline.Done, false);
                 SelAcc = g; Tab = Tab.Access;
             }
+            // A request id never returns to pending, and an approval missing from the snapshot will never hand off.
+            seen.IntersectWith(Requests.Select(r => r.Id));
+            handoff.IntersectWith(snap.Grants.Select(g => g.Id));
         }
         Raise(string.Empty);
         Fix.Touch();
@@ -597,7 +713,7 @@ public sealed class MainVm : Bindable
         void Say(string t, bool e) { if (target is GrantVm g) g.Say(t, e); else if (target is JobVm j) j.Say(t, e); }
         try
         {
-            var r = await Launch.Send(new Request { Op = op, Id = id });
+            var r = await Send(new Request { Op = op, Id = id });
             Say(r.Ok ? ok() : string.Format(Copy.Detail.ActionFailed, verb(), Fmt.Err(r)), !r.Ok);
         }
         catch (Exception e) { Say(string.Format(Copy.Detail.ActionFailed, verb(), Fmt.Err(e)), true); }
@@ -633,7 +749,7 @@ public sealed class MainVm : Bindable
         int ok = 0; string? error = null;
         foreach (var g in Access.Where(a => a.IsActive).ToList())
         {
-            try { var r = await Launch.Send(new Request { Op = Ops.Revoke, Id = g.Id }); if (r.Ok) ok++; else error = Fmt.Err(r); }
+            try { var r = await Send(new Request { Op = Ops.Revoke, Id = g.Id }); if (r.Ok) ok++; else error = Fmt.Err(r); }
             catch (Exception e) { error = Fmt.Err(e); }
         }
         monitor.Retry();

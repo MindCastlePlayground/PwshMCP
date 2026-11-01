@@ -27,7 +27,9 @@ public static class Names
     public const string ZhTag = "zh", EnTag = "en", ZhCulture = "zh-CN", EnCulture = "en-US";
     public const string ArtifactDir = "artifacts", ArtifactSub = "ui-0.4.0", Report = "ui-selftest.txt", PngExt = ".png";
     public const string Armed = "armed";
-    public const string QuietValue = "Quiet", AutoQuietValue = "AutoQuiet";
+    public const string QuietValue = "Quiet", AutoQuietValue = "AutoQuiet", SoundValue = "Sound";
+    /// <summary>Notification chime exported beside the icons. Playback synthesizes it in memory and never reads this file.</summary>
+    public const string ChimeFile = "chime.wav";
     public const string NoticeLife = "pm.notice.life";
     /// <summary>ScrollViewer Tag that turns on the "more above / more below" edge rules (sidebar lists).</summary>
     public const string Rules = "rules";
@@ -52,7 +54,25 @@ public static class Timing
     public static readonly TimeSpan Copied = TimeSpan.FromMilliseconds(1500), Fade = TimeSpan.FromMilliseconds(180), Turn = TimeSpan.FromMilliseconds(120);
     public static readonly TimeSpan GateReady = TimeSpan.FromSeconds(5), GateDown = TimeSpan.FromSeconds(3);
     public static readonly TimeSpan Cue = TimeSpan.FromMilliseconds(700);
+    /// <summary>How long a hidden or minimized main window waits before it is torn down.</summary>
+    public static readonly TimeSpan Reclaim = TimeSpan.FromSeconds(10);
+    public const int Balloon = 4000;
     public const int MaxRestarts = 3;
+}
+
+/// <summary>Memory bounds for data the tray loads on demand.</summary>
+public static class Limits
+{
+    /// <summary>Characters of command output kept in the detail pane; the broker serves it in chunks.</summary>
+    public const int Output = 1 << 20;
+}
+
+/// <summary>The notification chime: two soft sine notes (C5, E5), quiet, with smooth attack and release.</summary>
+public static class Sound
+{
+    public const int Rate = 22050, Bits = 16, Channels = 1;
+    public const double Length = 0.45, Peak = 0.2, Attack = 0.012, Release = 0.09, Decay = 0.16, Overtone = 0.12;
+    public static readonly (double Hz, double At)[] Notes = [(523.25, 0), (659.25, 0.11)];
 }
 
 /// <summary>
@@ -88,6 +108,10 @@ public static class Copy
         public static string Result => T("已批准 {0} 个，未批准 {1} 个。", "Approved: {0}. Not approved: {1}.");
         public static string Scope => T("将允许该客户端在此 Windows 登录会话中以管理员身份运行命令；不限于此任务。", "Allows this client to run admin commands in this Windows sign-in session, beyond this task.");
         public static string SavedFailed => T("无法保存免打扰设置：{0}", "Couldn't save notification settings: {0}");
+        public static string SoundFailed => T("无法播放提示音：{0}", "Couldn't play the notification sound: {0}");
+        public static string Sound => T("提示音", "Notification sound");
+        public static string SoundOn => T("新请求时播放提示音", "Play a sound for new requests");
+        public static string SoundTry => T("试听提示音", "Play sample sound");
         public static string Unavailable => T("连接或执行器未就绪，请在主界面修复后批准。", "Connection or executor unavailable. Repair it in the main window before approving.");
     }
 
@@ -239,6 +263,10 @@ public static class Copy
         public static string Environment => T("环境创建于", "Environment started");
         public static string NoOutput => T("此任务没有记录输出。", "This task recorded no output.");
         public static string OutputPending => T("任务完成后可查看输出。", "Output is available when the task finishes.");
+        public static string OutputLoading => T("正在读取输出…", "Loading output…");
+        public static string OutputCut => T("输出较长，仅显示前 {0} 个字符。", "Output is long. Showing the first {0} characters.");
+        public static string OutputFailed => T("无法读取输出：{0}", "Couldn't load output: {0}");
+        public static string CommandFailed => T("无法读取完整命令：{0}", "Couldn't load the full command: {0}");
         public static string OutputWarn => T("输出可能包含机密信息，只在你要求时显示。", "Output may contain secrets, so it's shown only when you ask.");
         public static string ErrorStream => T("错误", "Errors");
         // Task name and description are supplied by the agent; older records predate them and are never back-filled from code or client.
@@ -517,6 +545,7 @@ public static class Report
     public const string Arc = "arc";
     public const string Ended = "ended", Mixed = "mixed", EndedOnly = "ended-only", ActiveOnly = "active-only";
     public const string Scroll = "scroll", Top = "top", Bottom = "bottom", Detail = "detail";
+    public const string Glyph = "glyph", Chime = "chime";
 }
 
 /// <summary>Broker error codes the tray translates (mirrors PwshMcp.Host Errors).</summary>

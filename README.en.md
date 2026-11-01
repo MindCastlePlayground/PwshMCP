@@ -23,7 +23,9 @@ Approve elevated commands in the tray instead of a UAC prompt per command. Indep
 
 PwshMCP consists of a local stdio MCP server and a Windows tray app. You authorize installation as administrator once, which sets up a background elevated execution entry point for the **current user**. New requests appear in a native window without stealing focus. Pick a lifetime and approve there, or use the tray.
 
-The tray menu can approve one request or all current requests and enable manual Do Not Disturb. Automatic muting is on by default during full screen, presentations and other Windows busy states. Pending indicators remain visible, and deferred requests share one notification when muting ends. Approve all applies only to the current list, never future arrivals. See [notification behavior](docs/NOTIFICATIONS.md).
+The tray menu can approve one request or all current requests and enable manual Do Not Disturb. Full screen always stays quiet; automatic muting for presentations and other Windows busy states is optional and enabled by default. Pending indicators remain visible, and deferred requests share one notification when muting ends. A short chime can be enabled or previewed in the menu; it is off by default. Approve all applies only to the current list, never future arrivals. See [notification behavior](docs/NOTIFICATIONS.md).
+
+Completed tasks are encrypted on disk, with the latest 100 summaries and all live tasks kept in memory. Output is loaded on demand. The main window is released after 10 idle seconds while hidden or minimized, and preloaded before a new approval notification appears. See [history storage](docs/HISTORY.md).
 
 <a id="version-note"></a>
 

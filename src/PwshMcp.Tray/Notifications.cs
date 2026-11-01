@@ -8,6 +8,8 @@ public sealed class NoticePrefs
 {
     public bool Manual { get; set; }
     public bool Auto { get; set; } = true;
+    /// <summary>Chime on a new request. Off unless the user turns it on.</summary>
+    public bool Sound { get; set; }
 
     public static NoticePrefs Load()
     {
@@ -15,7 +17,8 @@ public sealed class NoticePrefs
         {
             using var key = Registry.CurrentUser.OpenSubKey(Names.PrefsKey);
             return new() { Manual = key?.GetValue(Names.QuietValue) is int m && m != 0,
-                Auto = key?.GetValue(Names.AutoQuietValue) is not int a || a != 0 };
+                Auto = key?.GetValue(Names.AutoQuietValue) is not int a || a != 0,
+                Sound = key?.GetValue(Names.SoundValue) is int c && c != 0 };
         }
         catch { return new(); }
     }
@@ -25,6 +28,7 @@ public sealed class NoticePrefs
         using var key = Registry.CurrentUser.CreateSubKey(Names.PrefsKey);
         key.SetValue(Names.QuietValue, Manual ? 1 : 0);
         key.SetValue(Names.AutoQuietValue, Auto ? 1 : 0);
+        key.SetValue(Names.SoundValue, Sound ? 1 : 0);
     }
 }
 
@@ -44,7 +48,16 @@ public sealed class NoticeQueue
     public void Dismiss(IEnumerable<string> ids) => shown.UnionWith(ids);
 }
 
-/// <summary>Read-only Windows notification/fullscreen state, including borderless full-screen apps.</summary>
+/// <summary>Why arrivals are held back. Full screen is never a preference: it always waits, and says nothing about it.</summary>
+public enum Hush { None, Manual, Auto, Full }
+
+public static class Hushes
+{
+    public static Hush Of(bool manual, bool auto, bool full, bool quiet) =>
+        full ? Hush.Full : manual ? Hush.Manual : auto && quiet ? Hush.Auto : Hush.None;
+}
+
+/// <summary>Read-only Windows notification state. Full screen (including borderless apps) is reported apart from other quiet states.</summary>
 public static class QuietProbe
 {
     enum UserState { NotPresent = 1, Busy, FullScreen, Presentation, Accepts, QuietTime, App }
@@ -59,10 +72,16 @@ public static class QuietProbe
     [DllImport("user32.dll")] static extern nint MonitorFromWindow(nint hwnd, uint flags);
     [DllImport("user32.dll")] static extern bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
 
-    public static bool Muted()
+    public static (bool Full, bool Quiet) Read()
     {
-        if (SHQueryUserNotificationState(out var state) == 0 && state is
-            UserState.NotPresent or UserState.Busy or UserState.FullScreen or UserState.Presentation or UserState.QuietTime) return true;
+        if (SHQueryUserNotificationState(out var state) != 0) return (Covered(), false);
+        if (state is UserState.Busy or UserState.FullScreen) return (true, false);
+        return (Covered(), state is UserState.NotPresent or UserState.Presentation or UserState.QuietTime);
+    }
+
+    /// <summary>The foreground window covers its whole monitor (borderless full screen).</summary>
+    static bool Covered()
+    {
         var hwnd = GetForegroundWindow();
         if (hwnd == 0 || hwnd == GetShellWindow() || hwnd == GetDesktopWindow()) return false;
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };

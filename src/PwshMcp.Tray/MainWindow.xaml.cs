@@ -223,20 +223,44 @@ public partial class MainWindow : Window
 
     bool retired;
 
-    /// <summary>Adopts the placement of the window this one replaces after a language switch.</summary>
-    public void Take(MainWindow old)
+    /// <summary>Where the window sits, kept after it is torn down so a rebuilt window opens in the same place. Empty until shown.</summary>
+    public (Rect Box, bool Max) Spot
     {
-        WindowStartupLocation = WindowStartupLocation.Manual;
-        var r = old.WindowState == WindowState.Normal ? new Rect(old.Left, old.Top, old.Width, old.Height) : old.RestoreBounds;
-        if (!r.IsEmpty) { Left = r.Left; Top = r.Top; Width = r.Width; Height = r.Height; }
-        if (old.WindowState == WindowState.Maximized) WindowState = WindowState.Maximized;
+        get
+        {
+            var r = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+            return (r.IsEmpty || double.IsNaN(r.Left) || double.IsNaN(r.Width) ? Rect.Empty : r, WindowState == WindowState.Maximized);
+        }
     }
 
-    /// <summary>Closes for real (replaced, not hidden). The view model lives on in the new window.</summary>
+    /// <summary>Adopts the placement of the window this one replaces after a language switch.</summary>
+    public void Take(MainWindow old) => Take(old.Spot);
+
+    /// <summary>Adopts a remembered placement. A never-shown window has none and keeps its default.</summary>
+    public void Take((Rect Box, bool Max) spot)
+    {
+        var r = spot.Box;
+        if (r.IsEmpty) return;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = r.Left; Top = r.Top; Width = r.Width; Height = r.Height;
+        if (spot.Max) WindowState = WindowState.Maximized;
+    }
+
+    /// <summary>Applies templates and lays out the current tab ahead of a likely open. No HWND, no activation.</summary>
+    public void Warm()
+    {
+        if (Content is not UIElement c) return;
+        ApplyTemplate();
+        c.Measure(new Size(double.IsNaN(Width) ? MinWidth : Width, double.IsNaN(Height) ? MinHeight : Height));
+        c.Arrange(new Rect(c.DesiredSize));
+    }
+
+    /// <summary>Closes for real (replaced or reclaimed, not hidden). The view model lives on; this window lets go of it.</summary>
     public void Retire()
     {
         Release();
         Close();
+        DataContext = null;
     }
 
     /// <summary>Unhooks from the view model and takes the lifetime popup down; the offline check stops here, short of a real Close.</summary>

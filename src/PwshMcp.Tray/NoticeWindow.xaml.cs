@@ -8,8 +8,9 @@ namespace PwshMcp.Tray;
 /// <summary>A non-modal, non-activating arrival window. No default approval button or global shortcuts.</summary>
 public partial class NoticeWindow : Window
 {
-    readonly GrantVm grant;
-    readonly Action details, later, mute;
+    // Dropped on close so a closed notice holds no request, command text or tray callbacks.
+    GrantVm? grant;
+    Action? details, later, mute;
     bool completed;
     public NoticeWindow(GrantVm grant, int pending, Action details, Action later, Action mute)
     {
@@ -19,8 +20,26 @@ public partial class NoticeWindow : Window
         DataContext = grant;
         Refresh(pending);
         SourceInitialized += (_, _) => Place();
-        Closed += (_, _) => { if (!completed) later(); };
+        Closed += (_, _) =>
+        {
+            // Fields, not the constructor parameters of the same name.
+            if (!completed) this.later?.Invoke();
+            DataContext = null; this.grant = null;
+            this.details = null; this.later = null; this.mute = null;
+        };
     }
+
+    /// <summary>Applies templates and measures the content before the window is shown, so it appears laid out. Creates no HWND.</summary>
+    public void Warm()
+    {
+        if (Content is not UIElement c) return;
+        ApplyTemplate();
+        c.Measure(new Size(Width, Height));
+        c.Arrange(new Rect(c.DesiredSize));
+    }
+
+    /// <summary>True once closed and its references dropped.</summary>
+    internal bool Released => grant is null && DataContext is null;
 
     public static string Label(Life life) => life switch
     {
@@ -48,6 +67,7 @@ public partial class NoticeWindow : Window
     public void Refresh(int pending)
     {
         count.Text = pending > 1 ? string.Format(Copy.Notify.Pending, pending - 1) : "";
+        if (grant is null) return;
         unavailable.Visibility = !grant.CanApprove && !grant.Sending && !grant.Accepted ? Visibility.Visible : Visibility.Collapsed;
         grant.Touch();
     }
@@ -55,11 +75,12 @@ public partial class NoticeWindow : Window
     /// <summary>Programmatic close, e.g. DND or request resolution, does not discard deferred notifications.</summary>
     public void Retire() { completed = true; Close(); }
     void OnLater(object sender, RoutedEventArgs e) => Close();
-    void OnDetails(object sender, RoutedEventArgs e) { details(); Close(); }
-    void OnMute(object sender, RoutedEventArgs e) { completed = true; mute(); Close(); }
+    void OnDetails(object sender, RoutedEventArgs e) { details?.Invoke(); Close(); }
+    void OnMute(object sender, RoutedEventArgs e) { completed = true; mute?.Invoke(); Close(); }
     async void OnApprove(object sender, RoutedEventArgs e)
     {
-        await grant.Submit();
-        if (grant.Accepted) Retire();
+        if (grant is not { } g) return;
+        await g.Submit();
+        if (g.Accepted && grant is not null) Retire();
     }
 }

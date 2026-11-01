@@ -2,13 +2,14 @@
 
 ## 使用方式
 
-- 新请求显示一个原生 WPF 窗口，位于鼠标所在屏幕工作区右下角，不抢键盘焦点、不播放声音，也不把批准设为默认回车按钮。
+- 新请求显示一个原生 WPF 窗口，位于鼠标所在屏幕工作区右下角，不抢键盘焦点，也不把批准设为默认回车按钮。默认静音；托盘菜单可开启请求音效或试听约 0.45 秒的柔和双音提示。
 - 弹窗展示任务名、客户端、授权范围和高亮命令，可选择有效期后直接批准，或进入详情。“稍后处理”和关闭只隐藏提醒，不拒绝请求；之后新到的请求仍会提醒。
 - 同时只展示一个请求窗口。其他请求合并为数量提示；当前请求批准或失效后显示下一条。新请求不会替换鼠标下方的批准目标。
 - 托盘右键 → **批准指定请求**，按任务名和客户端选择；或 **批准当前全部请求**。快捷批准有效期默认为直到注销，可在菜单调整。
 - 批量目标固定为打开菜单时的待处理请求；执行期间的新申请不会被批准。已处理或失效的请求会跳过，最后汇报批准数与未批准数。
-- 手动免打扰与自动免打扰可分别开关，保存于当前用户的托盘设置。自动模式默认开启，读取 Windows 通知状态并检测前台窗口是否覆盖完整显示器；普通最大化窗口保留任务栏时不算全屏。
-- 免打扰期间关闭自动弹窗、保留待处理标记；退出后用一个窗口继续提醒，不批量弹出。免打扰不会批准、拒绝或延长请求。主动点击菜单操作的结果仍可显示通知。
+- 手动免打扰与自动免打扰可分别开关，保存于当前用户的托盘设置。全屏始终静默；自动模式控制演示等其他 Windows 通知状态，默认开启。普通最大化窗口保留任务栏时不算全屏。
+- 全屏或免打扰期间关闭自动弹窗和请求音效、保留待处理标记；退出后用一个窗口继续提醒，不批量弹出。免打扰不会批准、拒绝或延长请求。全屏时也抑制操作结果气泡。
+- 提醒出现前预加载主窗口；隐藏或最小化闲置 10 秒后释放窗口和已加载输出。可见弹窗、正在批准或修复时暂缓回收，托盘与后台任务继续运行。
 - 批准沿用受信任执行器通道，不自动唤起 UAC。离线时无法批准，可通过主窗口恢复入口修复。快捷批准与主窗口批准的授权范围一致，不限于展示的任务。
 
 ## English
@@ -17,7 +18,9 @@ New requests share one non-activating native window near the pointer's monitor c
 
 The tray menu offers individual approval and a fixed batch of current requests. The duration defaults to sign-out and is adjustable. New arrivals never join a batch already selected. Results report approved and unapproved counts.
 
-Manual muting and automatic full-screen/presentation muting are independent, remembered options. Automatic muting is enabled by default and uses Windows notification state plus foreground monitor coverage. Deferred requests remain pending and resume in one window after muting ends. No notification preference grants access or triggers UAC.
+Full screen always suppresses popups, result balloons and request sounds. Manual muting and automatic muting for other Windows quiet states are independent, remembered options. Automatic muting is enabled by default. Deferred requests remain pending and resume in one window after muting ends. The optional 0.45-second chime is off by default and has a preview menu entry. No notification preference grants access or triggers UAC.
+
+The main window is preloaded before a new notification and released after 10 idle seconds while hidden or minimized. Visible notices and ongoing approval or repair operations defer teardown. Loaded output is released with the window and fetched again when requested.
 
 ## 设计与验收边界
 

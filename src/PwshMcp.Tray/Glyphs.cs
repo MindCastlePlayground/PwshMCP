@@ -15,10 +15,16 @@ public static class Glyphs
     static readonly Color DarkFg = Color.FromArgb(255, 255, 255), LightFg = Color.FromArgb(26, 26, 26);
     static readonly Color AmberOnDark = Color.FromArgb(255, 184, 48), AmberOnLight = Color.FromArgb(196, 116, 0);
     static readonly Color Indigo = Color.FromArgb(51, 70, 200), IndigoDeep = Color.FromArgb(36, 50, 150);
+    /// <summary>Active fill per taskbar: about 6.5:1 against Windows 11 dark and light taskbars.</summary>
+    static readonly Color IndigoOnDark = Color.FromArgb(140, 155, 255), IndigoOnLight = Indigo;
+    const int Dim = 150;
 
     // Geometry in a 16-unit box; scaled per size.
     static RectangleF Body(float k) => new(3.5f * k, 1.5f * k, 9f * k, 13f * k);
     static RectangleF Slot(float k) => new(6f * k, 3.7f * k, 4f * k, 1.5f * k);
+    /// <summary>The terminal prompt: a chevron and an underscore in the lower half of the badge.</summary>
+    static readonly PointF[] Chevron = [new(6f, 8f), new(8.1f, 9.7f), new(6f, 11.4f)];
+    static readonly (PointF a, PointF b) Under = (new(8.9f, 11.6f), new(10.4f, 11.6f));
 
     public static Bitmap Draw(Glyph g, int size, bool lightBar, bool pending)
     {
@@ -34,23 +40,44 @@ public static class Glyphs
         {
             case Glyph.Idle:
                 Outline(gr, body, k, stroke, fg);
+                using (var pen = Line(fg, MathF.Max(1f, 1.1f * k))) Prompt(gr, pen, k);
                 break;
             case Glyph.Offline:
-                var dim = Color.FromArgb(150, fg);
+                var dim = Color.FromArgb(Dim, fg);
                 Outline(gr, body, k, stroke, dim);
                 Clear(gr, () => Slash(k), stroke * 2.6f);
                 using (var pen = new Pen(dim, stroke) { StartCap = LineCap.Round, EndCap = LineCap.Round })
                     gr.DrawLine(pen, Slash(k).a, Slash(k).b);
                 break;
             case Glyph.Active:
-                Filled(gr, body, k, fg, false);
+                Filled(gr, body, k, lightBar ? IndigoOnLight : IndigoOnDark, false);
+                Knock(gr, k, MathF.Max(1.15f, 1.3f * k));
                 break;
             case Glyph.App:
-                Filled(gr, body, k, Indigo, size >= 24);
+                Filled(gr, body, k, Indigo, true);
                 break;
         }
         if (pending) Dot(gr, k, lightBar ? AmberOnLight : AmberOnDark);
         return bmp;
+    }
+
+    static Pen Line(Color c, float width) => new(c, width) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+
+    static PointF At(PointF p, float k) => new(p.X * k, p.Y * k);
+
+    static void Prompt(Graphics gr, Pen pen, float k)
+    {
+        gr.DrawLines(pen, Chevron.Select(p => At(p, k)).ToArray());
+        gr.DrawLine(pen, At(Under.a, k), At(Under.b, k));
+    }
+
+    /// <summary>Cuts the prompt out of a filled badge so the taskbar shows through it, whatever its colour.</summary>
+    static void Knock(Graphics gr, float k, float width)
+    {
+        var old = gr.CompositingMode;
+        gr.CompositingMode = CompositingMode.SourceCopy;
+        using (var pen = Line(Color.Transparent, width)) Prompt(gr, pen, k);
+        gr.CompositingMode = old;
     }
 
     static (PointF a, PointF b) Slash(float k) => (new PointF(2.2f * k, 13.8f * k), new PointF(13.8f * k, 2.2f * k));
@@ -77,15 +104,14 @@ public static class Glyphs
     static void Filled(Graphics gr, RectangleF body, float k, Color c, bool prompt)
     {
         using var path = Round(body, 2.2f * k);
-        path.AddPath(Round(Slot(k), 0.75f * k), false);
+        using (var slot = Round(Slot(k), 0.75f * k)) path.AddPath(slot, false);
         path.FillMode = FillMode.Alternate;
         if (prompt)
         {
             using var lg = new LinearGradientBrush(body, c, IndigoDeep, 90f);
             gr.FillPath(lg, path);
-            using var pen = new Pen(Color.White, 1.1f * k) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-            gr.DrawLines(pen, [new PointF(6f * k, 8f * k), new PointF(8.1f * k, 9.7f * k), new PointF(6f * k, 11.4f * k)]);
-            gr.DrawLine(pen, 8.9f * k, 11.6f * k, 10.4f * k, 11.6f * k);
+            using var pen = Line(Color.White, MathF.Max(1f, 1.1f * k));
+            Prompt(gr, pen, k);
         }
         else
         {
@@ -149,11 +175,12 @@ public static class Glyphs
 
     public static byte[] AppIco() => Ico(AppSizes.Select(s => (s, Png(Glyph.App, s))).ToList());
 
-    /// <summary>Writes app.ico and every tray state PNG for review and packaging.</summary>
+    /// <summary>Writes app.ico, the chime and every tray state PNG for review and packaging.</summary>
     public static void Export(string dir)
     {
         Directory.CreateDirectory(dir);
         File.WriteAllBytes(Path.Combine(dir, Names.IcoFile), AppIco());
+        File.WriteAllBytes(Path.Combine(dir, Names.ChimeFile), Chime.Wav());
         foreach (var g in new[] { Glyph.Offline, Glyph.Idle, Glyph.Active })
             foreach (var light in new[] { false, true })
                 foreach (var pending in new[] { false, true })

@@ -210,9 +210,9 @@ internal sealed class Broker
         {
             if(j.State==JobState.NeedsApproval&&now-j.CreatedAt>TimeSpan.FromHours(24))j.State=JobState.Expired;
             if(j.State==JobState.Queued&&j.GrantId is not null&&grants[j.GrantId].State!=AccessState.Active)j.State=JobState.NeedsSession;
-            if(j.State==JobState.Running&&workers.TryGetValue(j.Id,out var pid))
-                try{if(System.Diagnostics.Process.GetProcessById(pid).HasExited)j.State=JobState.OutcomeUnknown;}catch(ArgumentException){j.State=JobState.OutcomeUnknown;}
+            if(j.State==JobState.Running&&workers.TryGetValue(j.Id,out var pid)&&!Alive(pid))j.State=JobState.OutcomeUnknown;
         }
+        foreach(var pair in normalWorkers.Where(p=>!Alive(p.Value)).ToArray())normalWorkers.Remove(pair.Key);
         ArchiveOverflow();
     }
     private void ArchiveOverflow()
@@ -249,7 +249,7 @@ internal sealed class Broker
     private static Response Fail(string error)=>new(){Ok=false,Error=error};
     private static bool Terminal(JobState s)=>s is JobState.Succeeded or JobState.Failed or JobState.Cancelled or JobState.Rejected or JobState.Expired or JobState.OutcomeUnknown;
     private static string Ids(string key)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(key)))[..32].ToLowerInvariant();
-    private static bool Alive(int pid){try{return !System.Diagnostics.Process.GetProcessById(pid).HasExited;}catch(ArgumentException){return false;}}
+    private static bool Alive(int pid){try{using var process=System.Diagnostics.Process.GetProcessById(pid);return !process.HasExited;}catch(ArgumentException){return false;}}
     private void Restore()
     {
         var previous=store.Load()??new([],[],[]);

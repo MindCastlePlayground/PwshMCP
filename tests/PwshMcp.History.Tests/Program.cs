@@ -10,7 +10,7 @@ internal static class Program
     static class K
     {
         public const string Host="PwshMcp.Host", Broker="PwshMcp.Host.Broker", Peer="PwshMcp.Host.Peer";
-        public const string Store="store", Path="path", Jobs="jobs", Grants="grants", Archive="archived", Hashes="fingerprints", Cancelled="cancelled";
+        public const string Store="store", Path="path", Jobs="jobs", Grants="grants", Archive="archived", Hashes="fingerprints", Cancelled="cancelled", Workers="normalWorkers";
         public const string Dispatch="Dispatch", Sweep="Sweep", Compact="ArchiveOverflow", Restore="Restore", Save="Save";
         public const string Sid="history-test-owner", User="test", Client="history-test", Description="History test", Code="'archive-output'";
         public const string Output="archive-output", Error="archive-error", Env="PRIVATE_TEST_VALUE", Secret="not-persisted";
@@ -89,6 +89,10 @@ internal static class Program
         var active=Id("active");grants[active]=new(){Id=active,State=AccessState.Active};
         Call(broker,K.Compact);
         Check(grants.Count==101&&grants.ContainsKey(active),"bounded ended grants and live preserved");
+        var staleWorkers=(Dictionary<string,int>)Field(broker,K.Workers);
+        staleWorkers[K.Other]=int.MaxValue;staleWorkers[K.Client]=Environment.ProcessId;
+        Call(broker,K.Sweep);
+        Check(staleWorkers.Count==1&&staleWorkers.ContainsKey(K.Client),"dead worker tracking released and live worker preserved");
 
         var failureRoot=System.IO.Path.Combine(root,"failure");Directory.CreateDirectory(failureRoot);
         File.WriteAllText(System.IO.Path.Combine(failureRoot,K.History),"blocked directory");

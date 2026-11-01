@@ -13,6 +13,7 @@ internal sealed class StateStore
         var root=WindowsIdentity.GetCurrent().IsSystem?Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData):Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         path=Path.Combine(root,Protocol.Product,"broker-state.json");
     }
+    internal HistoryStore History => new(path);
     public StoredState? Load()
     {
         if(!File.Exists(path))return null;

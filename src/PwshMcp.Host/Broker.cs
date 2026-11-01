@@ -19,6 +19,8 @@ internal sealed class Broker
     private readonly Dictionary<string,long> sessionStamps=[];
     private readonly HashSet<string> cancelled=[];
     private readonly StateStore store=new();
+    private readonly HashSet<string> archived=[];
+    private HistoryStore History=>store.History;
     private readonly bool elevated=new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
     public async Task RunAsync(CancellationToken ct)
@@ -69,7 +71,7 @@ internal sealed class Broker
                 Response response;
                 lock(gate)
                 {
-                    Sweep();response=Dispatch(req,peer);
+                    Sweep();response=Dispatch(req,peer);ArchiveOverflow();
                     if(req.Op is Ops.Submit or Ops.Approve or Ops.Deny or Ops.Revoke or Ops.WorkerResult or Ops.Cancel or Ops.RequestAccess || req.Op==Ops.WorkerNext&&response.Job is not null)
                         store.Save(grants.Values,jobs.Values,fingerprints);
                 }
@@ -90,7 +92,7 @@ internal sealed class Broker
         if(r.Client.Length>100 || r.Label.Length>500 || r.Id.Length>200 || r.TaskName is null || r.TaskName.Length>200 || (r.ClientName is not null&&!ClientNameRules.IsValid(r.ClientName)))return Fail(Errors.Invalid);
         switch(r.Op)
         {
-            case Ops.Snapshot:return new(){Snapshot=new(){ElevatedBroker=elevated,Grants=grants.Values.Where(g=>Owned(g,p)).ToList(),Jobs=jobs.Values.Where(j=>Owned(j,p)).OrderByDescending(j=>j.CreatedAt).Take(100).Select(SafeJob).ToList()}};
+            case Ops.Snapshot:return new(){Snapshot=new(){ElevatedBroker=elevated,Grants=grants.Values.Where(g=>Owned(g,p)).ToList(),Jobs=jobs.Values.Where(j=>Owned(j,p)).OrderByDescending(j=>j.CreatedAt).Select(SafeJob).ToList()}};
             case Ops.RequestAccess:
                 if(string.IsNullOrWhiteSpace(r.TaskName))return Fail(Errors.TaskName);
                 return new(){Grant=RequestGrant(r.Client,r.Label,r.TaskName,r.ClientName??"",p)};
@@ -103,8 +105,11 @@ internal sealed class Broker
                     if(j.State is JobState.Queued or JobState.NeedsApproval or JobState.NeedsSession) j.State=JobState.Rejected;
                 return new(){Grant=g};
             case Ops.Status:case Ops.Output:case Ops.Cancel:
-                if(!jobs.TryGetValue(r.Id,out var job)||!Owned(job,p))return Fail(Errors.Missing);
-                if(r.Op==Ops.Cancel){cancelled.Add(job.Id);if(job.State!=JobState.Running && !Terminal(job.State))job.State=JobState.Cancelled;}
+                if(!ValidId(r.Id))return Fail(Errors.Missing);
+                if(!jobs.TryGetValue(r.Id,out var job)) { var old=ReadArchived(r.Id); if(old is null||!Owned(old,p))return Fail(Errors.Missing); job=old; }
+                else if(archived.Contains(job.Id)) job=ReadArchived(r.Id)??throw new IOException(Errors.HistoryMissing);
+                if(!Owned(job,p))return Fail(Errors.Missing);
+                if(r.Op==Ops.Cancel){if(!Terminal(job.State))cancelled.Add(job.Id);if(job.State!=JobState.Running && !Terminal(job.State))job.State=JobState.Cancelled;}
                 if(r.Op==Ops.Output){var s=job.Result?.Output??"";var start=Math.Clamp(r.Cursor,0,s.Length);var end=Math.Min(s.Length,start+65536);return new(){Id=job.Id,Output=s[start..end],Cursor=end,Job=SafeJob(job)};}
                 return new(){Job=SafeJob(job)};
             case Ops.WorkerNext:return Next(r,p);
@@ -119,7 +124,10 @@ internal sealed class Broker
         if(r.Run.Description.Length>1000)return Fail(Errors.Invalid);
         var key=$"{p.Sid}|{p.Session}|{r.Client}|{r.Id}";
         var hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(r.Run,Protocol.Json))));
-        if(fingerprints.TryGetValue(key,out var old))return old==hash?new(){Job=SafeJob(jobs.Values.Single(j=>j.Id==Ids(key)))}:Fail(Errors.Conflict);
+        var id=Ids(key);
+        if(fingerprints.TryGetValue(key,out var old))return old==hash?new(){Job=SafeJob(jobs[id])}:Fail(Errors.Conflict);
+        var archived=History.ReadJob(id);
+        if(archived is not null)return archived.Fingerprint==hash?new(){Job=SafeJob(archived.Job)}:Fail(Errors.Conflict);
         if(jobs.Count>=Names.MaxJobs)return Fail(Errors.Full);
         var active=grants.Values.FirstOrDefault(g=>Owned(g,p)&&g.Client==r.Client&&g.State==AccessState.Active);
         AccessInfo? pending=null;
@@ -192,17 +200,6 @@ internal sealed class Broker
     private void Sweep()
     {
         var now=DateTimeOffset.UtcNow;
-        if(jobs.Count>=Names.MaxJobs)
-        {
-            foreach(var old in jobs.Values.Where(j=>Terminal(j.State)).OrderBy(j=>j.CreatedAt).Take(Names.MaxJobs/5).ToArray())
-            {
-                jobs.Remove(old.Id);workers.Remove(old.Id);cancelled.Remove(old.Id);
-                foreach(var key in fingerprints.Keys.Where(k=>Ids(k)==old.Id).ToArray())fingerprints.Remove(key);
-            }
-        }
-        if(grants.Count>=Names.MaxJobs)
-            foreach(var old in grants.Values.Where(g=>g.State is AccessState.Denied or AccessState.Revoked or AccessState.Expired).OrderBy(g=>g.CreatedAt).Take(Names.MaxJobs/5).ToArray())
-                if(!jobs.Values.Any(j=>j.GrantId==old.Id&&!Terminal(j.State))){grants.Remove(old.Id);grantWorkers.Remove(old.Id);sessionStamps.Remove(old.Id);}
         foreach(var g in grants.Values)
         {
             if(g.State==AccessState.Pending&&now-g.CreatedAt>TimeSpan.FromHours(24))End(g,AccessEnd.RequestTimeout);
@@ -216,7 +213,35 @@ internal sealed class Broker
             if(j.State==JobState.Running&&workers.TryGetValue(j.Id,out var pid))
                 try{if(System.Diagnostics.Process.GetProcessById(pid).HasExited)j.State=JobState.OutcomeUnknown;}catch(ArgumentException){j.State=JobState.OutcomeUnknown;}
         }
+        ArchiveOverflow();
     }
+    private void ArchiveOverflow()
+    {
+        foreach(var old in jobs.Values.Where(j=>Terminal(j.State)&&!archived.Contains(j.Id)).ToArray())
+        {
+            try
+            {
+                var key=fingerprints.Keys.FirstOrDefault(k=>Ids(k)==old.Id);
+                var saved=History.ReadJob(old.Id);
+                if(saved is null)History.WriteJob(key is not null?fingerprints[key]:"",old);
+                jobs[old.Id]=Summary(saved?.Job??old);
+                archived.Add(old.Id);
+                workers.Remove(old.Id);cancelled.Remove(old.Id);
+                if(key is not null)fingerprints.Remove(key);
+            }
+            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or JsonException)
+            {RuntimeLog.Write(Names.Broker,RuntimeLog.Client,ex);}
+        }
+        foreach(var old in jobs.Values.Where(j=>Terminal(j.State)).OrderByDescending(j=>j.CreatedAt).Skip(Names.History.Jobs).ToArray())
+            if(archived.Remove(old.Id))jobs.Remove(old.Id);
+        foreach(var old in grants.Values.Where(g=>g.State is AccessState.Denied or AccessState.Revoked or AccessState.Expired).OrderBy(g=>g.CreatedAt).Take(Math.Max(0,grants.Values.Count(g=>g.State is AccessState.Denied or AccessState.Revoked or AccessState.Expired)-Names.History.Grants)).ToArray())
+            if(!jobs.Values.Any(j=>j.GrantId==old.Id&&!Terminal(j.State)))
+                try{History.WriteGrant(old);grants.Remove(old.Id);grantWorkers.Remove(old.Id);sessionStamps.Remove(old.Id);}
+                catch(Exception ex) when(ex is IOException or UnauthorizedAccessException){RuntimeLog.Write(Names.Broker,RuntimeLog.Client,ex);}
+    }
+    private static JobInfo Summary(JobInfo job)=>job with{Run=job.Run with{Code="",Env=[]},Result=job.Result is null?null:job.Result with{Output="",Error=""}};
+    private JobInfo? ReadArchived(string id)=>History.ReadJob(id)?.Job;
+    private static bool ValidId(string id)=>id.Length==32&&id.All(Uri.IsHexDigit);
     private bool Owned(AccessInfo g,Peer p)=>g.Sid==p.Sid&&g.SessionId==p.Session;
     private static void End(AccessInfo g,AccessEnd reason){g.State=AccessState.Expired;g.EndReason=reason;}
     private bool Owned(JobInfo j,Peer p)=>j.OwnerSid==p.Sid&&j.SessionId==p.Session;
@@ -227,7 +252,7 @@ internal sealed class Broker
     private static bool Alive(int pid){try{return !System.Diagnostics.Process.GetProcessById(pid).HasExited;}catch(ArgumentException){return false;}}
     private void Restore()
     {
-        var previous=store.Load();if(previous is null)return;
+        var previous=store.Load()??new([],[],[]);
         foreach(var g in previous.Grants){if(g.State is AccessState.Active or AccessState.Pending)End(g,AccessEnd.Restart);g.HeartbeatAt=null;grants[g.Id]=g;}
         foreach(var j in previous.Jobs){if(!Terminal(j.State))j.State=JobState.OutcomeUnknown;jobs[j.Id]=j;}
         foreach(var pair in previous.Fingerprints)fingerprints[pair.Key]=pair.Value;

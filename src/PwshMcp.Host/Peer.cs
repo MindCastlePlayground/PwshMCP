@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -10,7 +9,9 @@ internal sealed record Peer(string Sid,string User,int Session,string Logon,bool
     public static Peer Read(NamedPipeServerStream pipe)
     {
         if(!GetNamedPipeClientProcessId(pipe.SafePipeHandle.DangerousGetHandle(),out var pid)) throw new UnauthorizedAccessException();
-        var session=Process.GetProcessById((int)pid).SessionId;
+        // Process.SessionId queries system-wide process information on Windows.
+        // Resolve only this client's session on the per-request authentication path.
+        if(!ProcessIdToSessionId(pid,out var session)) throw new UnauthorizedAccessException();
         WindowsIdentity? identity=null;
         // Only capture the token inside native pipe impersonation. WindowsIdentity.Name
         // internally uses RunImpersonated and can capture that token into AsyncLocal,
@@ -19,7 +20,7 @@ internal sealed record Peer(string Sid,string User,int Session,string Logon,bool
         using(var id=identity ?? throw new UnauthorizedAccessException())
         {
             var principal=new WindowsPrincipal(id);
-            return new(id.User!.Value,id.Name,session,ReadLogon(id),principal.IsInRole(WindowsBuiltInRole.Administrator),(int)pid);
+            return new(id.User!.Value,id.Name,(int)session,ReadLogon(id),principal.IsInRole(WindowsBuiltInRole.Administrator),(int)pid);
         }
     }
     private static string ReadLogon(WindowsIdentity id)
@@ -32,5 +33,6 @@ internal sealed record Peer(string Sid,string User,int Session,string Logon,bool
     [StructLayout(LayoutKind.Sequential)] private struct Luid {public uint Low;public int High;}
     [StructLayout(LayoutKind.Sequential)] private struct TokenStats {public Luid Token;public Luid Auth;public long Expiry;public int Type;public int Level;public uint DynamicCharged,DynamicAvailable,GroupCount,PrivilegeCount;public Luid Modified;}
     [DllImport("kernel32.dll",SetLastError=true)] private static extern bool GetNamedPipeClientProcessId(IntPtr pipe,out uint pid);
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern bool ProcessIdToSessionId(uint pid,out uint session);
     [DllImport("advapi32.dll",SetLastError=true)] private static extern bool GetTokenInformation(IntPtr token,int info,IntPtr data,int length,out int needed);
 }

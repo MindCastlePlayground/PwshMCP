@@ -71,3 +71,5 @@
 - 2026-11-01 托盘内存与通知优化：首条只读命令显式指定系统 PowerShell，执行器仍映射 WindowsApps pwsh，CreateProcessAsUserW 5；原范围 require_escalated 成功。本轮后续命令复用该通道。Pinterest 参考刷新时 cua.getState 返回浏览器列表为空和 browser access host unavailable，保留既有索引，未声称完成账号核对或刷新。
 - 2026-11-01 Claude 界面集成修复在代码写入后返回 HTTP 403 用户额度不足；停止继续调用，主代理对已落盘代码执行构建、通知与原生窗口测试，均通过。后续需要 Claude 开发时先恢复服务额度，不静默换模型。
 - 2026-11-01 原生交互验收：隔离窗口启动成功，但 cua.getApp 返回 Computer Use app approval timed out；未取得点击验收结果，停止测试进程，复用已通过的自动原生窗口检查。再次交互前需完成应用授权。
+- 2026-11-03 Grok 排障：默认沙箱启动仍报 CreateProcessAsUserW 5，显式系统 PowerShell 被执行器映射到 WindowsApps pwsh；原范围 require_escalated 成功，后续优先使用已连接的 pwsh MCP。通过 request_access 获得托盘批准后，管理员授权生效。
+

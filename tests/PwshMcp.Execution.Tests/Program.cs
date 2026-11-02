@@ -19,6 +19,8 @@ internal static class Program
             await using var executor = new Executor();
             var one = await executor.RunAsync(new RunSpec { Code = "'hello'; Write-Error 'problem'", Cwd = cwd, Privilege = Privilege.Normal });
             Check(one.ExitCode != 0 && one.Output.Contains("hello") && one.Error.Contains("problem"), $"stdout and stderr with failure status: exit={one.ExitCode}, out={one.Output}, error={one.Error}");
+            var selectFirst = await executor.RunAsync(new RunSpec { Code = "Get-ChildItem -LiteralPath $env:SystemRoot | Select-Object -First 1; 'after-select'", Cwd = cwd, Privilege = Privilege.Normal });
+            Check(selectFirst.ExitCode == 0 && selectFirst.Output.Contains("after-select") && string.IsNullOrEmpty(selectFirst.Error), "Select-Object -First stops upstream without failing subsequent commands");
             var code = await executor.RunAsync(new RunSpec { Code = "& $env:SystemRoot\\System32\\cmd.exe /c exit 7", Cwd = cwd, Privilege = Privilege.Normal });
             Check(code.ExitCode == 7, "native exit status");
             var large = await executor.RunAsync(new RunSpec { Code = "'x' * (1024 * 1024 + 128)", Cwd = cwd, Privilege = Privilege.Normal });
@@ -48,7 +50,7 @@ internal static class Program
             Check(recovered.Output.Contains("recovered"),"persistent session recovery after cancellation");
             var noLine=await executor.RunAsync(new RunSpec{Code="[Console]::Write('no-newline')",Cwd=cwd,TimeoutSeconds=5});
             Check(noLine.ExitCode==0 && noLine.Output.Contains("no-newline"),"direct console output without newline");
-            Console.WriteLine("Execution harness passed: 15 checks.");
+            Console.WriteLine("Execution harness passed: 16 checks.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine($"FAILED: {ex.Message}"); return 1; }

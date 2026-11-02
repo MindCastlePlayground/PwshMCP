@@ -137,6 +137,7 @@ public sealed class Executor : IAsyncDisposable
               $__pmRoom=1048576-$__pmOut.Length-$__pmErr.Length
               if($__pmRoom -gt 0) { [void]$__pmTarget.Append($__pmText.Substring(0,[Math]::Min($__pmRoom,$__pmText.Length))) }
             }
+            $__pmErrors=@($__pmErrors | Where-Object { $_.GetType().FullName -ne 'System.Management.Automation.StopUpstreamCommandsException' })
             if($__pmErrors.Count -gt 0) {
               $__pmExit=1
               if($__pmErr.Length -eq 0) { foreach($__pmFailure in $__pmErrors) {

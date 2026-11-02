@@ -73,3 +73,5 @@
 - 2026-11-01 原生交互验收：隔离窗口启动成功，但 cua.getApp 返回 Computer Use app approval timed out；未取得点击验收结果，停止测试进程，复用已通过的自动原生窗口检查。再次交互前需完成应用授权。
 - 2026-11-03 Grok 排障：默认沙箱启动仍报 CreateProcessAsUserW 5，显式系统 PowerShell 被执行器映射到 WindowsApps pwsh；原范围 require_escalated 成功，后续优先使用已连接的 pwsh MCP。通过 request_access 获得托盘批准后，管理员授权生效。
 
+- 2026-11-03 界面修复委派：agy 已核实 gemini-4-argon-medium，但首轮返回 RESOURCE_EXHAUSTED/429、Individual quota reached（约 142 小时后恢复），无代码改动；等待用户决定本次替代执行者。CUA 读取 PwshMCP 可访问性树成功，但截图 FrameArrived 超时，点击缺少坐标几何；不重复发送点击。rg 的 Windows 路径通配符未展开且猜测 CodeView.cs 路径失败；先枚举确认实现位于 Code.cs。首次 git push 无 upstream，使用 git push --set-upstream origin main 成功。
+

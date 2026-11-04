@@ -16,3 +16,7 @@
 - 桌面点击验收待完成：本次 Computer Use 应用访问授权超时。上述测试覆盖安装程序集的行为及真实服务接口。
 
 热更新方案见 [HOT-UPDATE-PROPOSAL.md](HOT-UPDATE-PROPOSAL.md)，目前为待审阅提案。
+
+## 图标简化（2026-11-04）
+
+提交 `043e19f` 移除了全部托盘状态与应用图标中的 `>_`，同步生成 PNG、ICO 和 SVG。颜色、外轮廓、离线斜杠及待审批圆点保持原样。Release 发布及现有图标状态检查通过，48px 导出图已查看；安装版 EXE、DLL、PDB 已替换并重启托盘，原文件保存在 `C:\Program Files\PwshMCP\backup-icon-20261104-230052`。

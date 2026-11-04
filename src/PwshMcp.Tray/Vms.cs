@@ -243,11 +243,11 @@ public sealed class JobVm : Bindable
     JobInfo job;
     bool shown; string notice = ""; bool bad;
     // Output is fetched from the broker only while shown, and dropped again when hidden.
-    string? text, errors, fail; bool loading, cut;
+    string? text, errors, fail; bool loading, cut; int outAsk;
     public JobVm(MainVm main, JobInfo j)
     {
         this.main = main; job = j; Id = j.Id; Cmd = new CmdVm(j);
-        Toggle = new Relay(Flip, () => job.Result is not null);
+        Toggle = new Relay(() => { _ = Flip(); }, () => job.Result is not null);
         Cancel = new Confirm(() => Copy.Detail.Cancel, () => Copy.Detail.ConfirmCancel, () => main.Act(Ops.Cancel, Id, this, () => Copy.Detail.Cancelled, () => Copy.Verb.Cancel), () => Fmt.Live(job.State));
     }
     public string Id { get; }
@@ -288,7 +288,7 @@ public sealed class JobVm : Bindable
         set
         {
             if (!Set(ref shown, value)) return;
-            if (!value) { text = errors = fail = null; cut = false; }
+            if (!value) { outAsk++; loading = false; text = errors = fail = null; cut = false; }
             Raise(nameof(ToggleText)); Raise(nameof(Output)); Raise(nameof(Errors)); Raise(nameof(OutputHint));
         }
     }
@@ -305,30 +305,35 @@ public sealed class JobVm : Bindable
     {
         Shown = !Shown;
         if (!Shown || loading || text is not null) return;
+        var mine = ++outAsk;
         loading = true; Raise(nameof(Output));
         try
         {
             var (t, e, c) = await main.Read(Id);
             // Hidden again while loading: keep nothing.
-            if (Shown) { text = t; errors = e; cut = c; }
+            if (mine == outAsk && Shown) { text = t; errors = e; cut = c; }
         }
-        catch (Exception x) { if (Shown) fail = string.Format(Copy.Detail.OutputFailed, Fmt.Err(x)); }
-        finally { loading = false; Raise(nameof(Output)); Raise(nameof(Errors)); Raise(nameof(OutputHint)); }
+        catch (Exception x) { if (mine == outAsk && Shown) fail = string.Format(Copy.Detail.OutputFailed, Fmt.Err(x)); }
+        finally
+        {
+            if (mine == outAsk) { loading = false; Raise(nameof(Output)); Raise(nameof(Errors)); Raise(nameof(OutputHint)); }
+        }
     }
     public string Notice { get => notice; private set => Set(ref notice, value); }
     public bool NoticeBad { get => bad; private set => Set(ref bad, value); }
     public void Say(string text, bool error) { NoticeBad = error; Notice = text; }
     public void Touch() => Raise(string.Empty);
     // Snapshots carry finished tasks without their code; the full command is read only while the task is selected.
-    RunSpec? full; int ask;
+    RunSpec? full; int ask; bool fetching;
     /// <summary>True while a command read on selection is held in memory.</summary>
     public bool HoldsCmd => full is not null;
 
     /// <summary>Reads the full command once for the selected task. A reply that lands after deselection is dropped.</summary>
     public async Task Fetch()
     {
-        if (full is not null || !string.IsNullOrEmpty(job.Run.Code)) return;
+        if (fetching || full is not null || !string.IsNullOrEmpty(job.Run.Code)) return;
         var mine = ++ask;
+        fetching = true;
         try
         {
             var r = await main.Send(new Request { Op = Ops.Status, Id = Id });
@@ -337,13 +342,14 @@ public sealed class JobVm : Bindable
             full = r.Job.Run; Cmd = new CmdVm(full);
         }
         catch (Exception x) { if (mine == ask) Say(string.Format(Copy.Detail.CommandFailed, Fmt.Err(x)), true); return; }
+        finally { if (mine == ask) fetching = false; }
         Raise(string.Empty);
     }
 
     /// <summary>Lets go of the fetched command and cancels any read in flight.</summary>
     public void Drop()
     {
-        ask++;
+        ask++; fetching = false;
         if (full is null) return;
         full = null; Cmd = new CmdVm(job);
         Raise(string.Empty);
@@ -354,6 +360,7 @@ public sealed class JobVm : Bindable
         var codeChanged = j.Run.Code != job.Run.Code || j.Run.Description != job.Run.Description;
         job = j;
         if (codeChanged && full is null) Cmd = new CmdVm(j);
+        if (codeChanged && main.SelTask == this && main.Tab == Tab.Tasks && !main.Lean) _ = Fetch();
         Raise(string.Empty);
     }
 }
@@ -643,7 +650,8 @@ public sealed class MainVm : Bindable
         {
             var old = selTask;
             if (!Set(ref selTask, value)) return;
-            old?.Drop(); Want();
+            if (old is not null) { old.Shown = false; old.Drop(); }
+            Want();
             Raise(nameof(Selected));
         }
     }
@@ -651,7 +659,7 @@ public sealed class MainVm : Bindable
     void Want()
     {
         if (selTask is not { } t) return;
-        if (tab == Tab.Tasks && !Lean) _ = t.Fetch(); else t.Drop();
+        if (tab == Tab.Tasks && !Lean) _ = t.Fetch(); else { t.Shown = false; t.Drop(); }
     }
     public object? Selected => tab switch { Tab.Requests => selReq, Tab.Access => selAcc, _ => selTask };
     public bool IsEmpty => tab switch { Tab.Requests => Requests.Count == 0, Tab.Access => Access.Count == 0, _ => Tasks.Count == 0 };

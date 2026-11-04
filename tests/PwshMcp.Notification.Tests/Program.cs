@@ -7,7 +7,7 @@ internal static class Program
     static class Keys
     {
         public const string First = "first", Later = "later", Missing = "missing";
-        public const string Live = "live", Done = "done", Ended = "ended", Text = "hello", Err = "err", Code = "Get-Item ";
+        public const string Live = "live", Done = "done", Ended = "ended", Text = "hello", Err = "err", Code = "Get-Item ", RunCode = "Get-Date";
         public const string Riff = "RIFF", Wave = "WAVE", Fmt = "fmt ", Data = "data";
     }
 
@@ -265,6 +265,96 @@ internal static class Program
         finally { setup.Monitor.Dispose(); }
     }
 
+    /// <summary>A live command survives a completed summary poll, then rehydrates once when the snapshot omits it.</summary>
+    static async Task RunningCommandCases()
+    {
+        var setup = MakeMain([], (_, _) => throw new InvalidOperationException("Unexpected admin call"));
+        var main = setup.Main;
+        try
+        {
+            var running = new JobInfo { Id = Keys.Live, State = JobState.Running, Run = new RunSpec { Code = Keys.RunCode } };
+            var liveSnapshot = new Snapshot { Jobs = [running] };
+            main.Seed(Online(liveSnapshot), Tab.Tasks);
+            var task = main.Tasks.Single();
+            main.SelTask = task;
+            Check(task.Cmd.Code == Keys.RunCode, "selected running command comes from its live snapshot");
+
+            var release = new TaskCompletionSource<Response>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var restored = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            int statuses = 0;
+            task.PropertyChanged += (_, _) => { if (task.Cmd.Code == Keys.Code + Keys.Live) restored.TrySetResult(); };
+            main.Send = r =>
+            {
+                Check(r.Op == Ops.Status && r.Id == Keys.Live, "completed summary rehydrates through status");
+                statuses++;
+                return release.Task;
+            };
+            var completed = new Snapshot { Jobs = [new JobInfo { Id = Keys.Live, State = JobState.Succeeded, Result = new ExecutionResult() }] };
+            main.Apply(Online(completed));
+            Check(task.Cmd.Code == "" && !task.HoldsCmd && statuses == 1, "summary drops live code and starts one rehydration");
+            main.Apply(Online(completed));
+            Check(statuses == 1, "pending rehydration is not duplicated by another Apply");
+            release.SetResult(new Response { Job = new JobInfo { Id = Keys.Live, Run = new RunSpec { Code = Keys.Code + Keys.Live } } });
+            await restored.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Check(task.Cmd.Code == Keys.Code + Keys.Live && task.HoldsCmd && statuses == 1, "rehydration restores the full command");
+        }
+        finally { setup.Monitor.Dispose(); }
+    }
+
+    /// <summary>Output requests are generation-bound: hide/reopen starts a fresh read and stale replies are ignored.</summary>
+    static async Task OutputRaceCases()
+    {
+        var setup = MakeMain([], (_, _) => throw new InvalidOperationException("Unexpected admin call"));
+        var main = setup.Main;
+        try
+        {
+            var snap = History();
+            main.Seed(Online(snap), Tab.Tasks);
+            var done = main.Tasks.Single(t => t.Id == Keys.Done);
+            var first = new TaskCompletionSource<Response>();
+            var fresh = new TaskCompletionSource<Response>();
+            var freshRendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            done.PropertyChanged += (_, _) =>
+            {
+                if (done.Shown && done.Output == Keys.Later) freshRendered.TrySetResult();
+            };
+            int reads = 0;
+            main.Send = r =>
+            {
+                if (r.Op == Ops.Status)
+                    return Task.FromResult(new Response { Job = new JobInfo { Id = r.Id, Run = new RunSpec { Code = Keys.Code + r.Id } } });
+                Check(r.Op == Ops.Output && r.Id == Keys.Done, "output requests target the completed task");
+                if (r.Cursor > 0) return Task.FromResult(new Response { Cursor = r.Cursor });
+                if (Interlocked.Increment(ref reads) == 1) return first.Task;
+                return fresh.Task;
+            };
+            main.SelTask = done;
+            done.Toggle.Execute(null);
+            Check(reads == 1 && done.Shown && done.Toggle.CanExecute(null), "loading output still allows hide");
+            done.Toggle.Execute(null);
+            Check(!done.Shown && !done.Holds, "hiding during load clears displayed output and cache");
+            done.Toggle.Execute(null);
+            Check(reads == 2, "reopen starts a second request immediately");
+            fresh.SetResult(new Response { Output = Keys.Later, Cursor = Keys.Later.Length });
+            await freshRendered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Check(done.Shown && done.Output == Keys.Later && done.Holds && reads == 2, "reopen starts a fresh request and displays its reply");
+            first.SetResult(new Response { Output = Keys.Text, Cursor = Keys.Text.Length });
+            Check(done.Shown && done.Output == Keys.Later && reads == 2, "older reply cannot overwrite fresh output");
+
+            var other = main.Tasks.Single(t => t.Id == Keys.Live);
+            done.Toggle.Execute(null);
+            // Reopen output, then switch selection and verify task state is released.
+            done.Toggle.Execute(null);
+            Check(done.Shown, "output can be reopened");
+            main.SelTask = other;
+            Check(!done.Shown && !done.Holds, "switching selected task clears output visibility and cache");
+            other.Shown = true;
+            main.Tab = Tab.Requests;
+            Check(!other.Shown && !other.Holds, "leaving task tab clears output visibility and cache");
+        }
+        finally { setup.Monitor.Dispose(); }
+    }
+
     static void ReclaimCases()
     {
         var hold = true; var drops = 0;
@@ -332,6 +422,8 @@ internal static class Program
         SnapshotCases().GetAwaiter().GetResult();
         LeanCases().GetAwaiter().GetResult();
         CommandCases().GetAwaiter().GetResult();
+        RunningCommandCases().GetAwaiter().GetResult();
+        OutputRaceCases().GetAwaiter().GetResult();
         ReclaimCases();
         ChimeCases();
         GlyphCases();

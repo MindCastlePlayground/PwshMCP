@@ -22,9 +22,6 @@ public static class Glyphs
     // Geometry in a 16-unit box; scaled per size.
     static RectangleF Body(float k) => new(3.5f * k, 1.5f * k, 9f * k, 13f * k);
     static RectangleF Slot(float k) => new(6f * k, 3.7f * k, 4f * k, 1.5f * k);
-    /// <summary>The terminal prompt: a chevron and an underscore in the lower half of the badge.</summary>
-    static readonly PointF[] Chevron = [new(6f, 8f), new(8.1f, 9.7f), new(6f, 11.4f)];
-    static readonly (PointF a, PointF b) Under = (new(8.9f, 11.6f), new(10.4f, 11.6f));
 
     public static Bitmap Draw(Glyph g, int size, bool lightBar, bool pending)
     {
@@ -40,7 +37,6 @@ public static class Glyphs
         {
             case Glyph.Idle:
                 Outline(gr, body, k, stroke, fg);
-                using (var pen = Line(fg, MathF.Max(1f, 1.1f * k))) Prompt(gr, pen, k);
                 break;
             case Glyph.Offline:
                 var dim = Color.FromArgb(Dim, fg);
@@ -51,7 +47,6 @@ public static class Glyphs
                 break;
             case Glyph.Active:
                 Filled(gr, body, k, lightBar ? IndigoOnLight : IndigoOnDark, false);
-                Knock(gr, k, MathF.Max(1.15f, 1.3f * k));
                 break;
             case Glyph.App:
                 Filled(gr, body, k, Indigo, true);
@@ -59,25 +54,6 @@ public static class Glyphs
         }
         if (pending) Dot(gr, k, lightBar ? AmberOnLight : AmberOnDark);
         return bmp;
-    }
-
-    static Pen Line(Color c, float width) => new(c, width) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-
-    static PointF At(PointF p, float k) => new(p.X * k, p.Y * k);
-
-    static void Prompt(Graphics gr, Pen pen, float k)
-    {
-        gr.DrawLines(pen, Chevron.Select(p => At(p, k)).ToArray());
-        gr.DrawLine(pen, At(Under.a, k), At(Under.b, k));
-    }
-
-    /// <summary>Cuts the prompt out of a filled badge so the taskbar shows through it, whatever its colour.</summary>
-    static void Knock(Graphics gr, float k, float width)
-    {
-        var old = gr.CompositingMode;
-        gr.CompositingMode = CompositingMode.SourceCopy;
-        using (var pen = Line(Color.Transparent, width)) Prompt(gr, pen, k);
-        gr.CompositingMode = old;
     }
 
     static (PointF a, PointF b) Slash(float k) => (new PointF(2.2f * k, 13.8f * k), new PointF(13.8f * k, 2.2f * k));
@@ -101,17 +77,15 @@ public static class Glyphs
         gr.FillPath(b, slot);
     }
 
-    static void Filled(Graphics gr, RectangleF body, float k, Color c, bool prompt)
+    static void Filled(Graphics gr, RectangleF body, float k, Color c, bool gradient)
     {
         using var path = Round(body, 2.2f * k);
         using (var slot = Round(Slot(k), 0.75f * k)) path.AddPath(slot, false);
         path.FillMode = FillMode.Alternate;
-        if (prompt)
+        if (gradient)
         {
             using var lg = new LinearGradientBrush(body, c, IndigoDeep, 90f);
             gr.FillPath(lg, path);
-            using var pen = Line(Color.White, MathF.Max(1f, 1.1f * k));
-            Prompt(gr, pen, k);
         }
         else
         {

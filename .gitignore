@@ -2,6 +2,7 @@
 **/obj/
 artifacts/
 .vs/
+Temp/
 *.user
 __pycache__/
 discussion/*.json

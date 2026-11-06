@@ -114,6 +114,8 @@ public static class All
     /// <summary>Scroll edge rules: Above from VerticalOffset; Below from (VerticalOffset, ScrollableHeight). Works in pixel and item units.</summary>
     public static readonly IValueConverter Above = new AboveConv();
     public static readonly IMultiValueConverter Below = new BelowConv();
+    /// <summary>Visible once the bound width reaches the parameter; sheds secondary header text on narrow windows instead of clipping it.</summary>
+    public static readonly IValueConverter Wide = new WideConv();
     sealed class AboveConv : IValueConverter
     {
         public object Convert(object v, Type t, object p, CultureInfo c) => v is double o && o > 0.5 ? Visibility.Visible : Visibility.Hidden;
@@ -123,6 +125,12 @@ public static class All
     {
         public object Convert(object[] v, Type t, object p, CultureInfo c) => v is [double o, double s] && o < s - 0.5 ? Visibility.Visible : Visibility.Hidden;
         public object[] ConvertBack(object v, Type[] t, object p, CultureInfo c) => [];
+    }
+    sealed class WideConv : IValueConverter
+    {
+        public object Convert(object v, Type t, object p, CultureInfo c) =>
+            v is double w && w >= (p is string s && double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var min) ? min : 0) ? Visibility.Visible : Visibility.Collapsed;
+        public object ConvertBack(object v, Type t, object p, CultureInfo c) => Binding.DoNothing;
     }
     sealed class AllVis : IMultiValueConverter
     {

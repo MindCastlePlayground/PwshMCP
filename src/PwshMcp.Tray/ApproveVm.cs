@@ -54,6 +54,7 @@ public sealed class ApproveVm : Bindable
     public IReadOnlyList<Fact> Diag => grant is null ? [] : [new(Copy.Diag.RequestId, grant.Id), new(Copy.Diag.Key, Key), new(Copy.Diag.Sid, grant.Sid), new(Copy.Diag.SessionId, Session)];
     public string Head => string.Format(resume ? Copy.Approve.ResumeHead : Copy.Approve.Head, Client);
     public string Reason => string.IsNullOrWhiteSpace(grant?.Label) ? Copy.Detail.NoReason : grant!.Label;
+    public bool HasReason => !string.IsNullOrWhiteSpace(grant?.Label);
     public string TaskName => Fmt.Or(grant?.TaskName, Copy.Detail.NoTaskName);
     public bool HasTask => !string.IsNullOrWhiteSpace(grant?.TaskName);
     public string User => grant?.User ?? "";

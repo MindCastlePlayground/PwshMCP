@@ -123,6 +123,7 @@ public sealed class GrantVm : Bindable
     public IReadOnlyList<Fact> Diag => [new(IsPending ? Copy.Diag.RequestId : Copy.Diag.GrantId, Id), new(Copy.Diag.Key, Key), new(Copy.Diag.Sid, info.Sid), new(Copy.Diag.SessionId, Session)];
     public string Reason => string.IsNullOrWhiteSpace(info.Label) ? Copy.Detail.NoReason : info.Label;
     public string ReasonLine => string.IsNullOrWhiteSpace(info.Label) ? Copy.Detail.NoReason : info.Label.ReplaceLineEndings(" ");
+    public bool HasReason => !string.IsNullOrWhiteSpace(info.Label);
     public string TaskName => Fmt.Or(info.TaskName, Copy.Detail.NoTaskName);
     public string TaskLine => Fmt.OneLine(info.TaskName, Copy.Detail.NoTaskName);
     public bool HasTask => !string.IsNullOrWhiteSpace(info.TaskName);

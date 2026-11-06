@@ -608,6 +608,13 @@
       </DataTrigger>
     </Style.Triggers>
   </Style>
+  <Style x:Key="{x:Static t:K.Reason}" TargetType="TextBlock" BasedOn="{StaticResource {x:Static t:K.Body}}">
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding HasReason}" Value="False">
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static t:K.Muted}}"/>
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
   <Style x:Key="{x:Static t:K.Title}" TargetType="TextBlock">
     <Setter Property="FontFamily" Value="{DynamicResource {x:Static t:K.UiFont}}"/>
     <Setter Property="FontSize" Value="22"/>

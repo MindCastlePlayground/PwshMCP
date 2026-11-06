@@ -17,7 +17,7 @@ public static class K
     public const string CodeTpl = "pm.tpl.code", CmdTpl = "pm.tpl.cmd", ScopeTpl = "pm.tpl.scope", DiagTpl = "pm.tpl.diag", BusyTpl = "pm.tpl.busy";
     public const string Issue = "pm.issue", Blocked = "pm.blocked", Pick = "pm.pick", Pop = "pm.pop";
     public const string Scroll = "pm.scroll", List = "pm.list", Page = "pm.page", Thumb = "pm.thumb";
-    public const string Desc = "pm.desc", Task = "pm.task", Fact = "pm.fact", Facts = "pm.facts", Diag = "pm.diag", Ident = "pm.ident", Scope = "pm.scope", Lang = "pm.lang";
+    public const string Desc = "pm.desc", Task = "pm.task", Reason = "pm.reason", Fact = "pm.fact", Facts = "pm.facts", Diag = "pm.diag", Ident = "pm.ident", Scope = "pm.scope", Lang = "pm.lang";
     public const string SynComment = "pm.synComment", SynStr = "pm.synStr", SynVar = "pm.synVar", SynKey = "pm.synKey", SynCmd = "pm.synCmd", SynNum = "pm.synNum", SynParam = "pm.synParam", SynType = "pm.synType";
 }
 

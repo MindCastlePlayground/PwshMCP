@@ -67,8 +67,9 @@ public partial class NoticeWindow : Window
     public void Refresh(int pending)
     {
         count.Text = pending > 1 ? string.Format(Copy.Notify.Pending, pending - 1) : "";
+        count.Visibility = pending > 1 ? Visibility.Visible : Visibility.Collapsed;
         if (grant is null) return;
-        unavailable.Visibility = !grant.CanApprove && !grant.Sending && !grant.Accepted ? Visibility.Visible : Visibility.Collapsed;
+        unavailable.Visibility = !grant.CanApprove && !grant.Sending && !grant.Accepted && string.IsNullOrEmpty(grant.Notice) ? Visibility.Visible : Visibility.Collapsed;
         grant.Touch();
     }
 

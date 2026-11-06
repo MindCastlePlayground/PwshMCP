@@ -182,7 +182,7 @@ public static class Check
 
     static AccessInfo Grant(string id, AccessState st, string task) => new()
     {
-        Id = id, TaskName = task, ClientName = "Claude Code · sample-workstation", Client = "client-key-" + new string('7', 40), Label = "sample",
+        Id = id, TaskName = task, ClientName = "Claude Code · sample-workstation", Client = "client-key-" + new string('7', 40), Label = L.T("检查系统组件健康状态并读取运行日志", "Inspect system component health and read runtime logs"),
         User = "SAMPLE\\operator", Sid = "S-1-5-21-1000000000-2000000000-3000000000-1001", SessionId = 2, State = st,
         CreatedAt = Now.AddMinutes(-3), ExpiresAt = st == AccessState.Pending ? Now.AddMinutes(4) : Now.AddHours(3),
         HeartbeatAt = st == AccessState.Active ? Now : null,
@@ -263,7 +263,7 @@ public static class Check
 
         vm.Seed(new Status(Conn.Online, new Snapshot(), Now, "", true, false), Tab.Requests);
         var sample = Snap();
-        sample.Grants[0] = sample.Grants[0] with { TaskName = L.T("检查服务状态（示例）", "Check service status (sample)"), ClientName = "Codex", Client = "codex" };
+        sample.Grants[0] = sample.Grants[0] with { TaskName = L.T("检查服务状态（示例）", "Check service status (sample)"), ClientName = "Codex", Client = "codex", Label = L.T("排查后台打印服务异常并获取运行日志", "Diagnose Print Spooler issues and inspect runtime logs") };
         sample.Jobs[0] = sample.Jobs[0] with { Run = Spec(L.T("读取 Windows 服务状态", "Read Windows service status"), "Get-Service -Name 'Spooler' | Select-Object Status, Name") };
         vm.Seed(new Status(Conn.Online, sample, Now, "", true, false), Tab.Requests);
         vm.Seed(new GateInfo(Gate.Ready, "", Now));

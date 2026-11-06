@@ -17,7 +17,7 @@
       </StackPanel>
     </Border>
 
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+    <ScrollViewer Grid.Row="1" Style="{StaticResource {x:Static t:K.Scroll}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
       <StackPanel Margin="28,24,28,24">
         <!-- Loading skeleton -->
         <StackPanel Visibility="{Binding Shows, Converter={StaticResource {x:Static t:K.Vis}}, ConverterParameter=not}">
@@ -32,7 +32,8 @@
           <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,16,0,3" Text="{x:Static t:Copy+Detail.TaskName}"/>
           <TextBlock Style="{StaticResource {x:Static t:K.Task}}" Text="{Binding TaskName}" AutomationProperties.Name="{Binding TaskName}"/>
           <TextBlock Style="{StaticResource {x:Static t:K.Label}}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left" Text="{x:Static t:Copy+Detail.TaskNote}"/>
-          <TextBlock Style="{StaticResource {x:Static t:K.Body}}" Margin="0,14,0,0" Text="{Binding Reason}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Section}}" Margin="0,20,0,6" Text="{x:Static t:Copy+Detail.Reason}"/>
+          <TextBlock Style="{StaticResource {x:Static t:K.Reason}}" Text="{Binding Reason}"/>
           <UniformGrid Margin="0,20,0,0" Columns="2">
             <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Approve.Requester}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Client}" ToolTip="{x:Static t:Copy+Who.SelfReported}"/></StackPanel>
             <StackPanel Style="{StaticResource {x:Static t:K.Fact}}"><TextBlock Style="{StaticResource {x:Static t:K.Label}}" Text="{x:Static t:Copy+Detail.Submitted}"/><TextBlock Style="{StaticResource {x:Static t:K.Value}}" Text="{Binding Submitted}"/></StackPanel>

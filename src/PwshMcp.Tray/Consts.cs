@@ -153,9 +153,9 @@ public static class Copy
     {
         public static string Connecting => T("正在连接…", "Connecting…");
         public static string Online => T("已连接", "Connected");
-        public static string OwnedBroker => T("本地代理（由托盘启动）", "Local broker (started by the tray)");
-        public static string ExternalBroker => T("代理独立运行", "Broker runs on its own");
-        public static string Elevated => T("代理以管理员身份运行", "Broker runs as administrator");
+        public static string OwnedBroker => T("托盘代理", "Tray broker");
+        public static string ExternalBroker => T("独立代理", "Standalone broker");
+        public static string Elevated => T("管理员身份", "Elevated");
         public static string Offline => T("未连接", "Not connected");
         public static string Stale => T("显示的是 {0} 的数据", "Showing data from {0}");
         public static string HostMissing => T("在 {0} 中找不到 PwshMcp.Host.exe。请使用 --backend-dir 指向包含它的文件夹后重新启动托盘。",
@@ -411,7 +411,7 @@ public static class Copy
         public static string Resuming => T("正在重启…", "Restarting…");
         public static string Done => T("已批准，授权生效中。", "Approved. Access is active.");
         public static string Resumed => T("已请求重启管理员执行器，连接后心跳会更新。", "Restart requested. The heartbeat updates once the admin worker connects.");
-        public static string Failed => T("批准失败：{0}。请求仍在等待，可以重试。", "Approval failed: {0}. The request is still waiting; you can retry.");
+        public static string Failed => T("批准失败：{0}，请求仍在等待。", "Approval failed: {0}. The request is still waiting.");
         public static string NotActive => T("管理员执行器已响应，但授权未生效（{0}）。没有标记为已批准，可以重试。", "The admin executor answered, but access isn't active ({0}). Nothing was marked approved; you can retry.");
         public static string ResumeFailed => T("重启失败：{0}。可以重试。", "Restart failed: {0}. You can retry.");
     }
@@ -435,7 +435,7 @@ public static class Copy
         public static string Untrusted => T("响应的程序不是 Program Files\\PwshMCP 中受保护的 PwshMcp.Host.exe", "the responding program isn't the protected PwshMcp.Host.exe in Program Files\\PwshMCP");
         public static string NotReady => T("执行器报告尚未就绪", "it reports it isn't ready");
         public static string Offline => T("管理员执行器不可用", "the admin executor is unavailable");
-        public static string Forbidden => T("执行器只接受安装目录中的 PwshMcp.Tray.exe，请从已安装的 PwshMCP 打开托盘", "it only accepts PwshMcp.Tray.exe from the install folder; open PwshMCP from its installed location");
+        public static string Forbidden => T("执行器只接受安装目录中的 PwshMcp.Tray.exe，请从已安装的 PwshMCP 打开托盘", "Only accepts the installed PwshMcp.Tray.exe; open PwshMCP from its install folder");
         public static string Invalid => T("执行器拒绝了这个请求", "it rejected the request");
         public static string Protected => T("执行器不在受保护的安装位置运行", "it isn't running from the protected install location");
         public static string Worker => T("授权已批准，但管理员命令执行器未能启动", "access was approved, but the admin worker didn't start");

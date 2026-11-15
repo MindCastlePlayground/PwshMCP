@@ -10,7 +10,7 @@
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D4)](#环境要求)
 [![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)](#环境要求)
 [![MCP stdio](https://img.shields.io/badge/MCP-stdio-3346C8)](#mcp-工具)
-[![Source 0.4.0](https://img.shields.io/badge/source-0.4.0-3346C8)](#version-note)
+[![Source 0.4.1](https://img.shields.io/badge/source-0.4.1-3346C8)](#version-note)
 [![Latest release](https://img.shields.io/github/v/release/MindCastlePlayground/PwshMCP?label=latest%20release)](https://github.com/MindCastlePlayground/PwshMCP/releases)
 
 **中文** · [English](README.en.md)
@@ -30,7 +30,7 @@ PwshMCP 由一个本地 stdio MCP 服务和一个 Windows 托盘应用组成。�
 <a id="version-note"></a>
 
 > [!IMPORTANT]
-> **本文描述源码中的 0.4.0。** 截至 2026-10-28，GitHub 最新发布包仍是 **0.3.0**，不含本文的完整桌面协调器和最新界面。请按下方步骤[从源码构建](#快速开始)；各发布包的实际内容以 [Releases](https://github.com/MindCastlePlayground/PwshMCP/releases) 说明为准。
+> **当前版本为 0.4.1。** 下载 [v0.4.1 发布包](https://github.com/MindCastlePlayground/PwshMCP/releases/tag/v0.4.1)，解压后在解压目录按下方安装步骤操作；也可[从源码构建](#快速开始)。发布包包含桌面协调器、双语托盘和安装脚本，运行需要 .NET 8 Desktop Runtime。变更和验证范围见 Release 说明。
 
 ## 核心能力
 

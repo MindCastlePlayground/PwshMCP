@@ -10,7 +10,7 @@ Approve elevated commands in the tray instead of a UAC prompt per command. Indep
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D4)](#requirements)
 [![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)](#requirements)
 [![MCP stdio](https://img.shields.io/badge/MCP-stdio-3346C8)](#mcp-tools)
-[![Source 0.4.0](https://img.shields.io/badge/source-0.4.0-3346C8)](#version-note)
+[![Source 0.4.1](https://img.shields.io/badge/source-0.4.1-3346C8)](#version-note)
 [![Latest release](https://img.shields.io/github/v/release/MindCastlePlayground/PwshMCP?label=latest%20release)](https://github.com/MindCastlePlayground/PwshMCP/releases)
 
 [中文](README.md) · **English**
@@ -30,7 +30,7 @@ Completed tasks are encrypted on disk, with the latest 100 summaries and all liv
 <a id="version-note"></a>
 
 > [!IMPORTANT]
-> **This page describes 0.4.0 in source.** As of 2026-10-28, the latest GitHub release package is still **0.3.0**. It lacks the full desktop coordinator and the latest UI described here. [Build from source](#quick-start) using the steps below; check each [release](https://github.com/MindCastlePlayground/PwshMCP/releases) for what it actually contains.
+> **The current version is 0.4.1.** Download and extract the [v0.4.1 package](https://github.com/MindCastlePlayground/PwshMCP/releases/tag/v0.4.1), then follow the installation steps below from the extracted directory, or [build from source](#quick-start). The package includes the desktop coordinator, bilingual tray and installation scripts. It requires .NET 8 Desktop Runtime. See the release notes for changes and verification scope.
 
 ## Features
 

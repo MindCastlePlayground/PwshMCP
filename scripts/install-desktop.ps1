@@ -31,7 +31,7 @@ class DesktopInstall {
         if($LASTEXITCODE -ne 0){throw "Owner update failed: $Path"}
     }
     static [void] Receipt([string]$Path,[string]$Status,[string]$Detail,[string]$Sid,[string]$Task,[string]$Target) {
-        [ordered]@{version='0.4.0';outcome=$Status;detail=$Detail;userSid=$Sid;taskName=$Task;installPath=$Target;updatedAt=[DateTime]::UtcNow.ToString('o')} |
+        [ordered]@{version='0.4.1';outcome=$Status;detail=$Detail;userSid=$Sid;taskName=$Task;installPath=$Target;updatedAt=[DateTime]::UtcNow.ToString('o')} |
             ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Path -Encoding UTF8
     }
 }

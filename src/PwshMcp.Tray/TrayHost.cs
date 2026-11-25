@@ -227,6 +227,8 @@ public sealed class TrayHost : IDisposable
         }
     }
 
+    internal void CloseNotices() => ClosePopup();
+
     void ClosePopup()
     {
         var old = popup; popup = null; popupId = null;

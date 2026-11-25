@@ -75,7 +75,28 @@ internal static class Program
             notice.Show();
             notice.Close();
             if (!notice.Released || deferred != 1) throw new InvalidOperationException("Closed notice kept its references or lost the deferral");
-            Console.WriteLine("PASS: native window creation, reentrant activation, hide/show, close/reopen, retire/prewarm/recreate with placement, notice release");
+
+            // Font fallback: unusable primary fonts are skipped before WPF layout measures them.
+            var skipped = Theme.ResolveFont("Cascadia Mono, Consolas, Microsoft YaHei UI", "Courier New", f => f != "Cascadia Mono");
+            if (skipped.Source != "Consolas, Microsoft YaHei UI") throw new InvalidOperationException($"Unexpected filtered font: {skipped.Source}");
+            var backed = Theme.ResolveFont("BadA, BadB", "GoodFallback", f => f == "GoodFallback");
+            if (backed.Source != "GoodFallback") throw new InvalidOperationException($"Unexpected fallback font: {backed.Source}");
+            var sysFont = Theme.ResolveFont("BadA", "BadB", _ => false);
+            if (!Equals(sysFont, SystemFonts.MessageFontFamily)) throw new InvalidOperationException("All-invalid font probe did not fall back to MessageFontFamily");
+            var realMono = Theme.ResolveFont(Names.MonoFont, Names.FallbackMonoFont);
+            var probeBox = new System.Windows.Controls.TextBox { FontFamily = realMono, Text = "S-1-5-21-3382995803-1130525966-2896326007-1001" };
+            probeBox.Measure(new Size(400, 100));
+
+            // Fault storm circuit breaker: show first, recover on limit, suppress the rest, reset after window.
+            var now = new DateTimeOffset(2026, 11, 25, 0, 0, 0, TimeSpan.Zero);
+            var guard = new FaultGuard(TimeSpan.FromSeconds(2), 4, () => now);
+            var seq = Enumerable.Range(0, 5).Select(_ => guard.Record()).ToArray();
+            if (!seq.SequenceEqual([FaultAction.Show, FaultAction.Suppress, FaultAction.Suppress, FaultAction.Recover, FaultAction.Suppress]))
+                throw new InvalidOperationException($"Unexpected fault sequence: {string.Join(",", seq)}");
+            now = now.AddSeconds(3);
+            if (guard.Record() != FaultAction.Show) throw new InvalidOperationException("FaultGuard did not reset after window elapsed");
+
+            Console.WriteLine("PASS: native window creation, reentrant activation, hide/show, close/reopen, retire/prewarm/recreate with placement, notice release, font fallback, fault guard");
             return 0;
         }
         catch (Exception e) { Console.Error.WriteLine(e.ToString()); return 1; }

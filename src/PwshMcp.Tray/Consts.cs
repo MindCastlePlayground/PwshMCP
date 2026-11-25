@@ -22,6 +22,8 @@ public static class Names
     /// <summary>Chinese UI sets Latin and CJK in one face so mixed lines share a baseline; English keeps YaHei only as fallback for agent text.</summary>
     public const string ZhUiFont = "Microsoft YaHei UI, Segoe UI", EnUiFont = "Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI";
     public const string MonoFont = "Cascadia Mono, Consolas, Microsoft YaHei UI";
+    public const string FallbackUiFont = "Segoe UI", FallbackMonoFont = "Consolas, Courier New";
+    public const string LogDir = "logs", FaultLog = "tray-fault.log";
     /// <summary>Per-user tray preferences (HKCU). Only the language lives here; nothing about authorization.</summary>
     public const string PrefsKey = @"Software\PwshMCP\Tray", LangValue = "Language";
     public const string ZhTag = "zh", EnTag = "en", ZhCulture = "zh-CN", EnCulture = "en-US";
@@ -54,10 +56,12 @@ public static class Timing
     public static readonly TimeSpan Copied = TimeSpan.FromMilliseconds(1500), Fade = TimeSpan.FromMilliseconds(180), Turn = TimeSpan.FromMilliseconds(120);
     public static readonly TimeSpan GateReady = TimeSpan.FromSeconds(5), GateDown = TimeSpan.FromSeconds(3);
     public static readonly TimeSpan Cue = TimeSpan.FromMilliseconds(700);
+    public static readonly TimeSpan FaultWindow = TimeSpan.FromSeconds(2);
     /// <summary>How long a hidden or minimized main window waits before it is torn down.</summary>
     public static readonly TimeSpan Reclaim = TimeSpan.FromSeconds(10);
     public const int Balloon = 4000;
     public const int MaxRestarts = 3;
+    public const int MaxFaults = 4;
 }
 
 /// <summary>Memory bounds for data the tray loads on demand.</summary>
@@ -65,6 +69,7 @@ public static class Limits
 {
     /// <summary>Characters of command output kept in the detail pane; the broker serves it in chunks.</summary>
     public const int Output = 1 << 20;
+    public const int FaultLogBytes = 64 * 1024;
 }
 
 /// <summary>The notification chime: two soft sine notes (C5, E5), quiet, with smooth attack and release.</summary>

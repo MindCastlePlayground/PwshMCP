@@ -22,6 +22,8 @@ public sealed class App : Application
     (Rect Box, bool Max) spot = (Rect.Empty, false);
     Mutex? single;
     EventWaitHandle? showSignal;
+    readonly FaultGuard faults = new(Timing.FaultWindow, Timing.MaxFaults);
+    bool recovering, recovered;
 
     App(Args args) { this.args = args; ShutdownMode = ShutdownMode.OnExplicitShutdown; }
 
@@ -53,8 +55,8 @@ public sealed class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // Keep the tray (and an owned broker's lifetime) intact on a UI fault, and say so instead of failing silently.
-        DispatcherUnhandledException += (_, x) => { x.Handled = true; vm?.Fault(x.Exception); };
+        // Keep the tray (and an owned broker's lifetime) intact on a UI fault, and break layout fault storms before they freeze the UI thread.
+        DispatcherUnhandledException += (_, x) => HandleFault(x);
         switch (args.Mode)
         {
             case Mode.Approve: case Mode.Resume: StartApprove(); break;
@@ -165,10 +167,41 @@ public sealed class App : Application
     void Show(Tab? tab)
     {
         if (vm is null || Quitting) return;
+        if (recovered) { recovered = false; faults.Reset(); vm.ClearFault(); }
         reclaim?.Cancel();
         vm.Grow();
         window ??= Make();
         window.Present(tab);
+    }
+
+    void HandleFault(DispatcherUnhandledExceptionEventArgs x)
+    {
+        x.Handled = true;
+        switch (faults.Record())
+        {
+            case FaultAction.Show:
+                FaultLog.Write(x.Exception);
+                vm?.Fault(x.Exception);
+                break;
+            case FaultAction.Recover:
+                FaultLog.Write(x.Exception);
+                RecoverFromFault();
+                break;
+        }
+    }
+
+    void RecoverFromFault()
+    {
+        if (recovering || Quitting) return;
+        recovering = true;
+        try
+        {
+            try { Theme.Fonts(Resources); } catch { }
+            if (window is { } w) { spot = w.Spot; window = null; w.Retire(); }
+            tray?.CloseNotices();
+            recovered = true;
+        }
+        finally { recovering = false; }
     }
 
     void Quit()
@@ -185,5 +218,50 @@ public sealed class App : Application
         showSignal?.Dispose();
         single?.ReleaseMutex();
         Shutdown();
+    }
+}
+
+public enum FaultAction { Show, Recover, Suppress }
+
+public sealed class FaultGuard
+{
+    readonly TimeSpan window;
+    readonly int limit;
+    readonly Func<DateTimeOffset> clock;
+    readonly Queue<DateTimeOffset> times = new();
+
+    public FaultGuard(TimeSpan window, int limit, Func<DateTimeOffset>? clock = null)
+    {
+        this.window = window; this.limit = limit; this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+    }
+
+    public FaultAction Record()
+    {
+        var now = clock();
+        while (times.Count > 0 && now - times.Peek() > window) times.Dequeue();
+        times.Enqueue(now);
+        return times.Count == 1 ? FaultAction.Show : times.Count == limit ? FaultAction.Recover : FaultAction.Suppress;
+    }
+
+    public void Reset() => times.Clear();
+}
+
+static class FaultLog
+{
+    static readonly string LogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AdminNames.Folder, Names.LogDir, Names.FaultLog);
+
+    public static void Write(Exception e)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(LogPath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            var entry = $"[{DateTimeOffset.UtcNow:O}] {e}{Environment.NewLine}---{Environment.NewLine}";
+            if (File.Exists(LogPath) && new FileInfo(LogPath).Length >= Limits.FaultLogBytes)
+                File.WriteAllText(LogPath, entry);
+            else
+                File.AppendAllText(LogPath, entry);
+        }
+        catch { }
     }
 }

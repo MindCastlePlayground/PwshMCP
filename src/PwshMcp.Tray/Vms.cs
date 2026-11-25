@@ -768,10 +768,13 @@ public sealed class MainVm : Bindable
     async Task RevokeEvery()
     {
         var (_, error) = await RevokeActive();
+        faulted = false;
         Notice = error is null ? "" : string.Format(Copy.Detail.ActionFailed, Copy.Tray.RevokeAll, error);
     }
 
     string notice = "";
+    bool faulted;
     public string Notice { get => notice; private set => Set(ref notice, value); }
-    public void Fault(Exception e) => Notice = string.Format(Copy.Err.Generic, e.Message);
+    public void Fault(Exception e) { faulted = true; Notice = string.Format(Copy.Err.Generic, e.Message); }
+    public void ClearFault() { if (!faulted) return; faulted = false; Notice = ""; }
 }

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
@@ -68,11 +69,49 @@ public static class Theme
     /// </summary>
     public static void Fonts(ResourceDictionary res)
     {
-        res[K.UiFont] = new FontFamily(L.Current == Lang.En ? Names.EnUiFont : Names.ZhUiFont);
-        res[K.MonoFont] = new FontFamily(Names.MonoFont);
+        res[K.UiFont] = ResolveFont(L.Current == Lang.En ? Names.EnUiFont : Names.ZhUiFont, Names.FallbackUiFont);
+        res[K.MonoFont] = ResolveFont(Names.MonoFont, Names.FallbackMonoFont);
         var src = new Uri(Names.Styles, UriKind.Absolute);
         var md = res.MergedDictionaries;
         for (int i = 0; i < md.Count; i++)
             if (md[i].Source == src) { md[i] = new ResourceDictionary { Source = src }; return; }
+    }
+
+    public static FontFamily ResolveFont(string candidates, string fallback, Func<string, bool>? probe = null)
+    {
+        var check = probe ?? UsableFont;
+        var primary = FilterFonts(candidates, check);
+        if (primary.Count > 0) return new FontFamily(string.Join(", ", primary));
+        var secondary = FilterFonts(fallback, check);
+        if (secondary.Count > 0) return new FontFamily(string.Join(", ", secondary));
+        return SystemFonts.MessageFontFamily;
+    }
+
+    static List<string> FilterFonts(string list, Func<string, bool> probe)
+    {
+        var usable = new List<string>();
+        foreach (var raw in list.Split(','))
+        {
+            var name = raw.Trim();
+            if (name.Length > 0 && probe(name)) usable.Add(name);
+        }
+        return usable;
+    }
+
+    static bool UsableFont(string name)
+    {
+        try
+        {
+            var family = new FontFamily(name);
+            if (!new Typeface(family, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal).TryGetGlyphTypeface(out _))
+                return false;
+            _ = new Typeface(family, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal).TryGetGlyphTypeface(out _);
+            _ = new Typeface(family, FontStyles.Italic, FontWeights.Normal, FontStretches.Normal).TryGetGlyphTypeface(out _);
+            return true;
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException or FileFormatException or ArgumentException)
+        {
+            return false;
+        }
     }
 }

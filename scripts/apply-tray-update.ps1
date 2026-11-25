@@ -18,17 +18,19 @@ class TrayUpdate {
 
     static [object] Tray() {
         $exe = Join-Path ([TrayUpdate]::Target) ([TrayUpdate]::TrayName)
-        return Get-CimInstance Win32_Process | Where-Object {
+        $hit = Get-CimInstance Win32_Process | Where-Object {
             $_.Name -eq [TrayUpdate]::TrayName -and $_.ExecutablePath -and
             ([IO.Path]::GetFullPath($_.ExecutablePath)).Equals($exe, [StringComparison]::OrdinalIgnoreCase)
         } | Select-Object -First 1
+        return $hit
     }
 
     static [object[]] Daemons() {
-        return [object[]]@(Get-CimInstance Win32_Process | Where-Object {
+        $hits = @(Get-CimInstance Win32_Process | Where-Object {
             $_.Name -eq [TrayUpdate]::DaemonName -and $_.CommandLine -and
             $_.CommandLine.IndexOf([TrayUpdate]::DaemonConfig, [StringComparison]::OrdinalIgnoreCase) -ge 0
         })
+        return [object[]]$hits
     }
 }
 

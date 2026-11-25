@@ -81,10 +81,18 @@ public static class Theme
     {
         var check = probe ?? UsableFont;
         var primary = FilterFonts(candidates, check);
-        if (primary.Count > 0) return new FontFamily(string.Join(", ", primary));
-        var secondary = FilterFonts(fallback, check);
-        if (secondary.Count > 0) return new FontFamily(string.Join(", ", secondary));
-        return SystemFonts.MessageFontFamily;
+        var resolved = primary.Count > 0
+            ? new FontFamily(string.Join(", ", primary))
+            : FilterFonts(fallback, check) is { Count: > 0 } secondary
+                ? new FontFamily(string.Join(", ", secondary))
+                : SystemFonts.MessageFontFamily;
+        if (probe is null)
+        {
+            var requested = string.Join(", ", candidates.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0));
+            if (!string.Equals(resolved.Source, requested, StringComparison.OrdinalIgnoreCase))
+                TrayLog.WriteOnce($"font-fallback:{requested}->{resolved.Source}", DiagStage.FontFallback, $"requested={requested} resolved={resolved.Source}");
+        }
+        return resolved;
     }
 
     static List<string> FilterFonts(string list, Func<string, bool> probe)
@@ -111,6 +119,7 @@ public static class Theme
         }
         catch (Exception e) when (e is UnauthorizedAccessException or IOException or FileFormatException or ArgumentException)
         {
+            TrayLog.WriteOnce($"font:{name}:{e.GetType().Name}", DiagStage.FontRejected, $"font={name}", e);
             return false;
         }
     }

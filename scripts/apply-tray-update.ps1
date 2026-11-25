@@ -62,7 +62,7 @@ try {
     if ($task) {
         if ($task.State -eq 'Running') {
             try {
-                $task | Stop-ScheduledTask -ErrorAction Stop
+                Stop-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction Stop
                 [TrayUpdate]::Say($Log, 'daemon task stopped')
             } catch {
                 [TrayUpdate]::Say($Log, 'daemon task stop skipped: ' + $_.Exception.Message)
@@ -97,7 +97,7 @@ try {
 
     if ($task) {
         try {
-            $task | Start-ScheduledTask -ErrorAction Stop
+            Start-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction Stop
             [TrayUpdate]::Say($Log, 'daemon task started')
         } catch {
             [TrayUpdate]::Say($Log, 'daemon task start skipped: ' + $_.Exception.Message)
@@ -126,7 +126,7 @@ try {
     try {
         $retryTask = Get-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
         if ($retryTask) {
-            $retryTask | Start-ScheduledTask
+            Start-ScheduledTask -TaskName $retryTask.TaskName -TaskPath $retryTask.TaskPath
             [TrayUpdate]::Say($Log, 'daemon task restarted after failure')
         }
     } catch { [TrayUpdate]::Say($Log, 'daemon restart failed: ' + $_.Exception.Message) }

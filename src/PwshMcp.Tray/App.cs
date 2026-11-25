@@ -42,8 +42,9 @@ public sealed class App : Application
         System.Windows.Forms.Application.EnableVisualStyles();
         var app = new App(a);
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(Names.Styles, UriKind.Absolute) });
+        // Offline checks: no tray, no broker, no UAC, no window shown, no log written. Exit code is the number of failures.
+        if (a.Mode is Mode.SelfTest or Mode.Render) TrayLog.Enabled = false;
         Theme.Apply(app.Resources);
-        // Offline checks: no tray, no broker, no UAC, no window shown. Exit code is the number of failures.
         if (a.Mode is Mode.SelfTest or Mode.Render) return Check.Run(a.Dir, a.Mode == Mode.Render);
         // Window/taskbar icon drawn from the same vector source as the tray glyph.
         using (var ico = new MemoryStream(Glyphs.AppIco()))
@@ -57,6 +58,11 @@ public sealed class App : Application
         base.OnStartup(e);
         // Keep the tray (and an owned broker's lifetime) intact on a UI fault, and break layout fault storms before they freeze the UI thread.
         DispatcherUnhandledException += (_, x) => HandleFault(x);
+        AppDomain.CurrentDomain.UnhandledException += (_, x) => TrayLog.Write(DiagStage.AppDomainFault, $"terminating={x.IsTerminating}", x.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, x) => TrayLog.Write(DiagStage.TaskFault, null, x.Exception);
+        var uiFont = (Resources[K.UiFont] as System.Windows.Media.FontFamily)?.Source;
+        var monoFont = (Resources[K.MonoFont] as System.Windows.Media.FontFamily)?.Source;
+        TrayLog.Write(DiagStage.Started, $"mode={args.Mode} uiFont={uiFont} monoFont={monoFont}");
         switch (args.Mode)
         {
             case Mode.Approve: case Mode.Resume: StartApprove(); break;
@@ -78,7 +84,8 @@ public sealed class App : Application
         if (!first)
         {
             // A second launch is explicit user intent: surface the running instance, then leave.
-            try { EventWaitHandle.OpenExisting(Names.ShowEvent).Set(); } catch { }
+            try { EventWaitHandle.OpenExisting(Names.ShowEvent).Set(); }
+            catch (Exception ex) { TrayLog.Write(DiagStage.SignalFailed, null, ex); }
             Shutdown(); return;
         }
         showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, Names.ShowEvent);
@@ -177,14 +184,15 @@ public sealed class App : Application
     void HandleFault(DispatcherUnhandledExceptionEventArgs x)
     {
         x.Handled = true;
-        switch (faults.Record())
+        var action = faults.Record();
+        switch (action)
         {
             case FaultAction.Show:
-                FaultLog.Write(x.Exception);
+                TrayLog.Write(DiagStage.UiFault, $"action={action} tab={vm?.Tab} winOpen={window?.IsVisible == true}", x.Exception);
                 vm?.Fault(x.Exception);
                 break;
             case FaultAction.Recover:
-                FaultLog.Write(x.Exception);
+                TrayLog.Write(DiagStage.UiFault, $"action={action} tab={vm?.Tab} winOpen={window?.IsVisible == true}", x.Exception);
                 RecoverFromFault();
                 break;
         }
@@ -197,9 +205,13 @@ public sealed class App : Application
         try
         {
             try { Theme.Fonts(Resources); } catch { }
+            var hadWindow = window is not null;
             if (window is { } w) { spot = w.Spot; window = null; w.Retire(); }
             tray?.CloseNotices();
             recovered = true;
+            var uiFont = (Resources[K.UiFont] as System.Windows.Media.FontFamily)?.Source;
+            var monoFont = (Resources[K.MonoFont] as System.Windows.Media.FontFamily)?.Source;
+            TrayLog.Write(DiagStage.FaultRecover, $"hadWindow={hadWindow} uiFont={uiFont} monoFont={monoFont}");
         }
         finally { recovering = false; }
     }
@@ -209,6 +221,7 @@ public sealed class App : Application
         if (monitor is null || vm is null) return;
         if (!ExitPrompt.Confirm(monitor.Owns, vm.RunningCount)) return;
         Quitting = true;
+        TrayLog.Write(DiagStage.Stopped);
         reclaim?.Cancel();
         tray?.Dispose();
         window?.Close();
@@ -244,24 +257,4 @@ public sealed class FaultGuard
     }
 
     public void Reset() => times.Clear();
-}
-
-static class FaultLog
-{
-    static readonly string LogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AdminNames.Folder, Names.LogDir, Names.FaultLog);
-
-    public static void Write(Exception e)
-    {
-        try
-        {
-            var dir = Path.GetDirectoryName(LogPath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            var entry = $"[{DateTimeOffset.UtcNow:O}] {e}{Environment.NewLine}---{Environment.NewLine}";
-            if (File.Exists(LogPath) && new FileInfo(LogPath).Length >= Limits.FaultLogBytes)
-                File.WriteAllText(LogPath, entry);
-            else
-                File.AppendAllText(LogPath, entry);
-        }
-        catch { }
-    }
 }

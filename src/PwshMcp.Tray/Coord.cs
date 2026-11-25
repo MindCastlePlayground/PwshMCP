@@ -77,7 +77,11 @@ public sealed class Coord : IDisposable
             if (r.Ok && r.Ready) return new(Gate.Ready, "", DateTimeOffset.UtcNow);
             return new(Gate.Broken, Fmt.Err(r), DateTimeOffset.UtcNow);
         }
-        catch (Exception e) when (!stop.IsCancellationRequested) { return Seen(e); }
+        catch (Exception e) when (!stop.IsCancellationRequested)
+        {
+            TrayLog.WriteOnce($"gate-ex:{e.GetType().Name}:0x{e.HResult:X8}", DiagStage.GateFault, null, e);
+            return Seen(e);
+        }
         catch { return Current; }
     }
 
@@ -93,14 +97,18 @@ public sealed class Coord : IDisposable
     public async Task<AdminResponse> Send(AdminOp op, string id, DateTimeOffset? end = null)
     {
         try { return await send(new AdminRequest { Op = op, Id = id, ExpiresAt = end?.ToUniversalTime() }, stop.Token); }
-        catch (Exception e) { Emit(Seen(e)); throw; }
+        catch (Exception e) { TrayLog.WriteOnce($"gate-ex:{e.GetType().Name}:0x{e.HResult:X8}", DiagStage.GateFault, $"op={op}", e); Emit(Seen(e)); throw; }
         finally { Retry(); }
     }
 
     /// <summary>Synthetic state for the offline self-test and render check.</summary>
     public void Seed(GateInfo g) => Emit(g);
 
-    void Emit(GateInfo g) { Current = g; publish(g); }
+    void Emit(GateInfo g)
+    {
+        if (Current.Gate != g.Gate) TrayLog.Write(DiagStage.GateState, $"{Current.Gate}->{g.Gate}");
+        Current = g; publish(g);
+    }
 
     public void Dispose() { stop.Cancel(); kick.Release(); }
 }

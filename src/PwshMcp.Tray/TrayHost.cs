@@ -80,15 +80,19 @@ public sealed class TrayHost : IDisposable
 
     nint Hook(nint hwnd, int msg, nint w, nint l, ref bool handled)
     {
-        if (taskbarCreated != 0 && msg == taskbarCreated)
+        try
         {
-            icon.Visible = false; Render(force: true); icon.Visible = true;
+            if (taskbarCreated != 0 && msg == taskbarCreated)
+            {
+                icon.Visible = false; Render(force: true); icon.Visible = true;
+            }
+            else if (msg is WmSettingChange or WmDpiChanged or WmDisplayChange)
+            {
+                Theme.Apply(System.Windows.Application.Current.Resources);
+                Render(force: true);
+            }
         }
-        else if (msg is WmSettingChange or WmDpiChanged or WmDisplayChange)
-        {
-            Theme.Apply(System.Windows.Application.Current.Resources);
-            Render(force: true);
-        }
+        catch (Exception ex) { TrayLog.Write(DiagStage.WndProcFault, $"msg=0x{msg:X4}", ex); }
         return 0;
     }
 
@@ -131,7 +135,7 @@ public sealed class TrayHost : IDisposable
     void Save()
     {
         try { prefs.Save(); }
-        catch (Exception e) { vm.Fault(new InvalidOperationException(string.Format(Copy.Notify.SavedFailed, e.Message))); }
+        catch (Exception e) { TrayLog.Write(DiagStage.PrefsFault, null, e); vm.Fault(new InvalidOperationException(string.Format(Copy.Notify.SavedFailed, e.Message))); }
         Render();
     }
 
@@ -222,6 +226,7 @@ public sealed class TrayHost : IDisposable
         try { await Chime.Play(); }
         catch (Exception e)
         {
+            TrayLog.Write(DiagStage.SoundFault, $"sample={sample}", e);
             var text = string.Format(Copy.Notify.SoundFailed, e.Message);
             if (sample) Balloon(text, true); else vm.Fault(new InvalidOperationException(text));
         }

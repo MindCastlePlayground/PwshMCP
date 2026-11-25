@@ -23,7 +23,7 @@ public static class Names
     public const string ZhUiFont = "Microsoft YaHei UI, Segoe UI", EnUiFont = "Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI";
     public const string MonoFont = "Cascadia Mono, Consolas, Microsoft YaHei UI";
     public const string FallbackUiFont = "Segoe UI", FallbackMonoFont = "Consolas, Courier New";
-    public const string LogDir = "logs", FaultLog = "tray-fault.log";
+    public const string LogDir = "logs", TrayLog = "tray.log", TrayLogPrev = "tray.previous.log";
     /// <summary>Per-user tray preferences (HKCU). Only the language lives here; nothing about authorization.</summary>
     public const string PrefsKey = @"Software\PwshMCP\Tray", LangValue = "Language";
     public const string ZhTag = "zh", EnTag = "en", ZhCulture = "zh-CN", EnCulture = "en-US";
@@ -69,7 +69,7 @@ public static class Limits
 {
     /// <summary>Characters of command output kept in the detail pane; the broker serves it in chunks.</summary>
     public const int Output = 1 << 20;
-    public const int FaultLogBytes = 64 * 1024;
+    public const int TrayLogBytes = 512 * 1024, TrayLogStackChars = 4096;
 }
 
 /// <summary>The notification chime: two soft sine notes (C5, E5), quiet, with smooth attack and release.</summary>
@@ -557,4 +557,15 @@ public static class Report
 public static class Codes
 {
     public const string DescriptionRequired = "description_required", TaskNameRequired = "task_name_required";
+}
+
+/// <summary>Diagnostic log stages for <see cref="TrayLog"/>. Lifecycle and error telemetry only.</summary>
+public static class DiagStage
+{
+    public const string Started = "started", Stopped = "stopped", SignalFailed = "signal_failed";
+    public const string UiFault = "ui_fault", FaultRecover = "fault_recover", AppDomainFault = "appdomain_fault", TaskFault = "task_fault";
+    public const string FontRejected = "font_rejected", FontFallback = "font_fallback";
+    public const string WndProcFault = "wndproc_fault", PrefsFault = "prefs_fault", SoundFault = "sound_fault";
+    public const string BrokerState = "broker_state", BrokerExit = "broker_exit", BrokerStartFailed = "broker_start_failed";
+    public const string GateState = "gate_state", GateFault = "gate_fault", Recovery = "recovery";
 }

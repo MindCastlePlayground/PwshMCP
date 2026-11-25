@@ -96,7 +96,47 @@ internal static class Program
             now = now.AddSeconds(3);
             if (guard.Record() != FaultAction.Show) throw new InvalidOperationException("FaultGuard did not reset after window elapsed");
 
-            Console.WriteLine("PASS: native window creation, reentrant activation, hide/show, close/reopen, retire/prewarm/recreate with placement, notice release, font fallback, fault guard");
+            // TrayLog: structured error chains, deduplicated WriteOnce, rotation, and disabled mode.
+            var origLogDir = TrayLog.LogDirectory;
+            var tmpLogDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pwshmcp-traylog-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                TrayLog.LogDirectory = tmpLogDir;
+                TrayLog.ResetForTest();
+
+                Exception thrown;
+                try { throw new InvalidOperationException("outer", new UnauthorizedAccessException("inner")); }
+                catch (Exception ex) { thrown = ex; }
+                TrayLog.Write(DiagStage.UiFault, "tab=Requests", thrown);
+                var body = System.IO.File.ReadAllText(TrayLog.LogPath);
+                if (!body.Contains(DiagStage.UiFault) || !body.Contains("InvalidOperationException") || !body.Contains("UnauthorizedAccessException") || !body.Contains("hr=0x") || !body.Contains("Main"))
+                    throw new InvalidOperationException("TrayLog.Write missed expected exception fields or stack");
+
+                TrayLog.WriteOnce("dup-key", DiagStage.FontRejected, "font=BadFont");
+                TrayLog.WriteOnce("dup-key", DiagStage.FontRejected, "font=BadFont");
+                var lines = System.IO.File.ReadAllLines(TrayLog.LogPath).Count(l => l.Contains("font=BadFont"));
+                if (lines != 1) throw new InvalidOperationException($"TrayLog.WriteOnce wrote {lines} entries instead of 1");
+
+                TrayLog.MaxBytes = 256;
+                TrayLog.Write(DiagStage.BrokerState, new string('a', 300));
+                TrayLog.Write(DiagStage.BrokerState, "after-rotate");
+                if (!System.IO.File.Exists(System.IO.Path.Combine(tmpLogDir, Names.TrayLogPrev)))
+                    throw new InvalidOperationException("TrayLog did not rotate to tray.previous.log");
+
+                TrayLog.Enabled = false;
+                var beforeLen = new System.IO.FileInfo(TrayLog.LogPath).Length;
+                TrayLog.Write(DiagStage.Stopped, "should-not-write");
+                if (new System.IO.FileInfo(TrayLog.LogPath).Length != beforeLen)
+                    throw new InvalidOperationException("TrayLog wrote while Enabled=false");
+            }
+            finally
+            {
+                TrayLog.LogDirectory = origLogDir;
+                TrayLog.ResetForTest();
+                try { if (System.IO.Directory.Exists(tmpLogDir)) System.IO.Directory.Delete(tmpLogDir, true); } catch { }
+            }
+
+            Console.WriteLine("PASS: native window creation, reentrant activation, hide/show, close/reopen, retire/prewarm/recreate with placement, notice release, font fallback, fault guard, tray log");
             return 0;
         }
         catch (Exception e) { Console.Error.WriteLine(e.ToString()); return 1; }

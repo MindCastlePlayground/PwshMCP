@@ -105,6 +105,7 @@ public sealed class Monitor : IDisposable
             owned.Dispose(); owned = null;
             restarts.RemoveAll(t => DateTimeOffset.UtcNow - t > Timing.RestartWindow);
             if (restarts.Count >= Timing.MaxRestarts) gaveUp = true;
+            TrayLog.Write(DiagStage.BrokerExit, $"code={code} restarts={restarts.Count} gaveUp={gaveUp}");
             if (gaveUp) return Down(string.Format(Copy.Conn.BrokerGaveUp, Timing.MaxRestarts));
             return StartOwned() ?? Wait(string.Format(Copy.Conn.BrokerExited, code));
         }
@@ -119,7 +120,7 @@ public sealed class Monitor : IDisposable
         var path = Launch.HostPath(backend);
         if (!File.Exists(path)) return Down(string.Format(Copy.Conn.HostMissing, Launch.HostDir(backend)));
         try { owned = Launch.Broker(backend); ownedAt = DateTimeOffset.UtcNow; restarts.Add(ownedAt); return null; }
-        catch (Exception ex) { return Down($"{Copy.Tray.StartFailed}: {ex.Message}"); }
+        catch (Exception ex) { TrayLog.Write(DiagStage.BrokerStartFailed, null, ex); return Down($"{Copy.Tray.StartFailed}: {ex.Message}"); }
     }
 
     static bool PipeExists()
@@ -131,7 +132,11 @@ public sealed class Monitor : IDisposable
     Status Down(string detail) => new(Conn.Offline, last, lastAt, detail, Owns, false);
     Status Wait(string detail) => new(Conn.Connecting, last, lastAt, detail, Owns, false);
 
-    void Emit(Status s) { Current = s; publish(s); }
+    void Emit(Status s)
+    {
+        if (Current.Conn != s.Conn) TrayLog.Write(DiagStage.BrokerState, $"{Current.Conn}->{s.Conn} owned={s.Owned} elevated={s.Elevated}");
+        Current = s; publish(s);
+    }
 
     /// <summary>Stops only the broker this tray started.</summary>
     public void StopOwned()

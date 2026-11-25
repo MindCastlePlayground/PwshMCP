@@ -46,7 +46,7 @@ try {
 
     # Stop the daemon first so it cannot relaunch the tray while files are being replaced.
     $task = Get-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
-    if ($task) { Stop-ScheduledTask -TaskName $Task; [TrayUpdate]::Say($Log, 'daemon task stopped'); Start-Sleep -Seconds 2 }
+    if ($task) { $task | Stop-ScheduledTask; [TrayUpdate]::Say($Log, 'daemon task stopped'); Start-Sleep -Seconds 2 }
 
     $old = [TrayUpdate]::Tray()
     while ($old) {
@@ -66,7 +66,7 @@ try {
     }
     [TrayUpdate]::Say($Log, 'installed product version=' + (Get-Item (Join-Path $target ([TrayUpdate]::Files[0]))).VersionInfo.ProductVersion)
 
-    if ($task) { Start-ScheduledTask -TaskName $Task; [TrayUpdate]::Say($Log, 'daemon task started') }
+    if ($task) { $task | Start-ScheduledTask; [TrayUpdate]::Say($Log, 'daemon task started') }
 
     $deadline = (Get-Date).AddSeconds(30)
     $new = $null
@@ -88,8 +88,9 @@ try {
     [TrayUpdate]::Say($Log, 'FAILED: ' + $_.Exception.Message)
     if ($backup -and (Test-Path -LiteralPath $backup)) { [TrayUpdate]::Say($Log, "rollback source: $backup") }
     try {
-        if (Get-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue) {
-            Start-ScheduledTask -TaskName $Task
+        $retryTask = Get-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
+        if ($retryTask) {
+            $retryTask | Start-ScheduledTask
             [TrayUpdate]::Say($Log, 'daemon task restarted after failure')
         }
     } catch { [TrayUpdate]::Say($Log, 'daemon restart failed: ' + $_.Exception.Message) }

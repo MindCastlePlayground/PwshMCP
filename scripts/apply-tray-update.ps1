@@ -9,6 +9,8 @@ class TrayUpdate {
     static [string]$Target = 'C:\Program Files\PwshMCP'
     static [string[]]$Files = @('PwshMcp.Tray.dll', 'PwshMcp.Tray.exe', 'PwshMcp.Tray.pdb')
     static [string]$TrayName = 'PwshMcp.Tray.exe'
+    static [string]$DaemonName = 'taskhub-daemon-host.exe'
+    static [string]$DaemonConfig = 'pwshmcp.toml'
 
     static [void] Say([string]$Path, [string]$Message) {
         Add-Content -LiteralPath $Path -Value ('[{0}] {1}' -f (Get-Date -Format 'HH:mm:ss'), $Message) -Encoding UTF8
@@ -20,6 +22,13 @@ class TrayUpdate {
             $_.Name -eq [TrayUpdate]::TrayName -and $_.ExecutablePath -and
             ([IO.Path]::GetFullPath($_.ExecutablePath)).Equals($exe, [StringComparison]::OrdinalIgnoreCase)
         } | Select-Object -First 1
+    }
+
+    static [object[]] Daemons() {
+        return [object[]]@(Get-CimInstance Win32_Process | Where-Object {
+            $_.Name -eq [TrayUpdate]::DaemonName -and $_.CommandLine -and
+            $_.CommandLine.IndexOf([TrayUpdate]::DaemonConfig, [StringComparison]::OrdinalIgnoreCase) -ge 0
+        })
     }
 }
 
@@ -46,7 +55,23 @@ try {
 
     # Stop the daemon first so it cannot relaunch the tray while files are being replaced.
     $task = Get-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
-    if ($task) { $task | Stop-ScheduledTask; [TrayUpdate]::Say($Log, 'daemon task stopped'); Start-Sleep -Seconds 2 }
+    if ($task) {
+        if ($task.State -eq 'Running') {
+            try {
+                $task | Stop-ScheduledTask -ErrorAction Stop
+                [TrayUpdate]::Say($Log, 'daemon task stopped')
+            } catch {
+                [TrayUpdate]::Say($Log, 'daemon task stop skipped: ' + $_.Exception.Message)
+            }
+        } else {
+            [TrayUpdate]::Say($Log, "daemon task state=$($task.State); skip Stop-ScheduledTask")
+        }
+    }
+    foreach ($d in [TrayUpdate]::Daemons()) {
+        [TrayUpdate]::Say($Log, "stop daemon pid=$($d.ProcessId)")
+        Stop-Process -Id $d.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    if ($task -or [TrayUpdate]::Daemons().Count -gt 0) { Start-Sleep -Seconds 2 }
 
     $old = [TrayUpdate]::Tray()
     while ($old) {
@@ -66,7 +91,14 @@ try {
     }
     [TrayUpdate]::Say($Log, 'installed product version=' + (Get-Item (Join-Path $target ([TrayUpdate]::Files[0]))).VersionInfo.ProductVersion)
 
-    if ($task) { $task | Start-ScheduledTask; [TrayUpdate]::Say($Log, 'daemon task started') }
+    if ($task) {
+        try {
+            $task | Start-ScheduledTask -ErrorAction Stop
+            [TrayUpdate]::Say($Log, 'daemon task started')
+        } catch {
+            [TrayUpdate]::Say($Log, 'daemon task start skipped: ' + $_.Exception.Message)
+        }
+    }
 
     $deadline = (Get-Date).AddSeconds(30)
     $new = $null
